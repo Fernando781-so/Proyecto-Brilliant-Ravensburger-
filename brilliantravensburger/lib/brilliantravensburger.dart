@@ -6,6 +6,20 @@ enum Region {
   rojo,
 }
 
+// CAMBIO:
+// Se crea la clase Zona para representar una región
+// y las posiciones que pertenecen a ella.
+class Zona {
+  final Region region;
+  final List<List<int>> posiciones;
+
+  Zona({
+    required this.region,
+    required this.posiciones,
+  });
+}
+
+
 // Verifica si un número NO existe en la lista.
 bool esDiferente(List<int> lista, int numero) {
   for (int elemento in lista) {
@@ -16,6 +30,7 @@ bool esDiferente(List<int> lista, int numero) {
 
   return true;
 }
+
 
 // Verifica si todos los números de la lista son iguales.
 bool todosMismoNumero(List<int> lista) {
@@ -33,6 +48,7 @@ bool todosMismoNumero(List<int> lista) {
 
   return true;
 }
+
 
 // Regla para el color Lila (L):
 // Debe contener exactamente 2 números diferentes.
@@ -57,27 +73,23 @@ bool exactamenteDosNumeros(List<int> lista) {
 }
 
 
-// Obtiene los valores de las celdas pertenecientes
-// a una región determinada del tablero.
-List<int> obtenerValoresRegion(
-  List<List<int>> tablero,
-  Region region,
-) {
-  List<int> valores = [];
-
-  Map<Region, List<List<int>>> posiciones = {
-
-    // Amarillo
-    Region.amarillo: [
+// CAMBIO:
+// Ahora las zonas se definen como objetos Zona.
+List<Zona> zonas = [
+  Zona(
+    region: Region.amarillo,
+    posiciones: [
       [0, 0],
       [0, 6],
       [3, 3],
       [6, 0],
       [6, 6],
     ],
+  ),
 
-    // Verde
-    Region.verde: [
+  Zona(
+    region: Region.verde,
+    posiciones: [
       [0, 1],
       [1, 0],
       [1, 1],
@@ -91,9 +103,11 @@ List<int> obtenerValoresRegion(
       [3, 6],
       [4, 0],
     ],
+  ),
 
-    // Azul
-    Region.azul: [
+  Zona(
+    region: Region.azul,
+    posiciones: [
       [0, 2],
       [1, 2],
       [1, 3],
@@ -103,9 +117,11 @@ List<int> obtenerValoresRegion(
       [5, 6],
       [6, 5],
     ],
+  ),
 
-    // Lila
-    Region.lila: [
+  Zona(
+    region: Region.lila,
+    posiciones: [
       [0, 3],
       [0, 4],
       [0, 5],
@@ -119,9 +135,11 @@ List<int> obtenerValoresRegion(
       [6, 1],
       [6, 2],
     ],
+  ),
 
-    // Rojo
-    Region.rojo: [
+  Zona(
+    region: Region.rojo,
+    posiciones: [
       [2, 1],
       [2, 2],
       [3, 1],
@@ -135,9 +153,27 @@ List<int> obtenerValoresRegion(
       [6, 3],
       [6, 4],
     ],
-  };
+  ),
+];
 
-  for (List<int> posicion in posiciones[region]!) {
+// CAMBIO:
+// Ya no necesitamos crear el Map dentro de la función.
+// Buscamos directamente la Zona correspondiente.
+List<int> obtenerValoresRegion(
+  List<List<int>> tablero,
+  Region region,
+) {
+  List<int> valores = [];
+
+  // CAMBIO:
+  // Busca la zona que corresponde a la región.
+  Zona zona = zonas.firstWhere(
+    (zona) => zona.region == region,
+  );
+
+  // CAMBIO:
+  // Recorremos las posiciones de la Zona encontrada.
+  for (List<int> posicion in zona.posiciones) {
     int fila = posicion[0];
     int columna = posicion[1];
 
