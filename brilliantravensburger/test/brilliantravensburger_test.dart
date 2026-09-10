@@ -107,6 +107,26 @@ void main() {
 
   group('Pruebas de funciones auxiliares', () {
 
+    test('determinarRegion clasifica una lista de un solo número como amarillo', () {
+      expect(determinarRegion([7]), Region.amarillo);
+    });
+
+    test('determinarRegion clasifica números iguales como azul', () {
+      expect(determinarRegion([4, 4, 4]), Region.azul);
+    });
+
+    test('determinarRegion clasifica dos números distintos como lila', () {
+      expect(determinarRegion([3, 5, 3, 5]), Region.lila);
+    });
+
+    test('determinarRegion clasifica todos distintos como rojo', () {
+      expect(determinarRegion([1, 2, 3, 4]), Region.rojo);
+    });
+
+    test('determinarRegion usa verde para cualquier otro caso', () {
+      expect(determinarRegion([1, 2, 3, 1]), Region.verde);
+    });
+
     test('todosMismoNumero devuelve true si todos son iguales', () {
       expect(todosMismoNumero([4, 4, 4]), isTrue);
     });
@@ -117,18 +137,6 @@ void main() {
 
     test('todosMismoNumero devuelve false para una lista vacía', () {
       expect(todosMismoNumero([]), isFalse);
-    });
-
-    test('esDiferente devuelve false si el número existe', () {
-      expect(esDiferente([1, 3, 5], 3), isFalse);
-    });
-
-    test('esDiferente devuelve true si el número no existe', () {
-      expect(esDiferente([1, 3, 5], 2), isTrue);
-    });
-
-    test('esDiferente devuelve true para una lista vacía', () {
-      expect(esDiferente([], 2), isTrue);
     });
 
   });

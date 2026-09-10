@@ -20,18 +20,6 @@ class Zona {
 }
 
 
-// Verifica si un número NO existe en la lista.
-bool esDiferente(List<int> lista, int numero) {
-  for (int elemento in lista) {
-    if (elemento == numero) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-
 // Verifica si todos los números de la lista son iguales.
 bool todosMismoNumero(List<int> lista) {
   if (lista.isEmpty) {
@@ -70,6 +58,29 @@ bool exactamenteDosNumeros(List<int> lista) {
 
   // Debe haber exactamente 2 números diferentes.
   return diferentes.length == 2;
+}
+
+
+// Determina el color según los números de una zona.
+Region determinarRegion(List<int> lista) {
+  if (lista.length == 1) {
+    return Region.amarillo;
+  }
+
+  if (todosMismoNumero(lista)) {
+    return Region.azul;
+  }
+
+  if (exactamenteDosNumeros(lista)) {
+    return Region.lila;
+  }
+
+  List<int> diferentes = lista.toSet().toList();
+  if (diferentes.length == lista.length) {
+    return Region.rojo;
+  }
+
+  return Region.verde;
 }
 
 
