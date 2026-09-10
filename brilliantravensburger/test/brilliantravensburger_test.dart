@@ -104,4 +104,32 @@ void main() {
     });
 
   });
+
+  group('Pruebas de funciones auxiliares', () {
+
+    test('todosMismoNumero devuelve true si todos son iguales', () {
+      expect(todosMismoNumero([4, 4, 4]), isTrue);
+    });
+
+    test('todosMismoNumero devuelve false si hay números diferentes', () {
+      expect(todosMismoNumero([4, 4, 5]), isFalse);
+    });
+
+    test('todosMismoNumero devuelve false para una lista vacía', () {
+      expect(todosMismoNumero([]), isFalse);
+    });
+
+    test('esDiferente devuelve false si el número existe', () {
+      expect(esDiferente([1, 3, 5], 3), isFalse);
+    });
+
+    test('esDiferente devuelve true si el número no existe', () {
+      expect(esDiferente([1, 3, 5], 2), isTrue);
+    });
+
+    test('esDiferente devuelve true para una lista vacía', () {
+      expect(esDiferente([], 2), isTrue);
+    });
+
+  });
 }
