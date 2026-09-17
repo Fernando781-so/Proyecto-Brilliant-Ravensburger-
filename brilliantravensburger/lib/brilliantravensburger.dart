@@ -31,7 +31,7 @@ class Zona {
 // ==========================================================
 // TABLERO
 // ==========================================================
-// ESTA ES LA CLASE QUE UNE EL TABLERO CON LAS ZONAS.
+// Esta es la clase que une el tablero con las zonas.
 //
 // El tablero guarda:
 // 1. Los valores de sus celdas.
@@ -45,7 +45,6 @@ class Tablero {
     required this.celdas,
     required this.zonas,
   });
-
 
   // Obtiene los valores de las celdas que pertenecen
   // a una región determinada.
@@ -69,7 +68,7 @@ class Tablero {
 
 
 // ==========================================================
-// ZONAS DEL TABLERO
+// CREAR ZONAS
 // ==========================================================
 // Aquí se define qué celdas pertenecen a cada región.
 
@@ -90,7 +89,6 @@ List<Zona> crearZonas() {
         [6, 6],
       ],
     ),
-
 
     // ------------------------------------------------------
     // VERDE
@@ -114,7 +112,6 @@ List<Zona> crearZonas() {
       ],
     ),
 
-
     // ------------------------------------------------------
     // AZUL
     // ------------------------------------------------------
@@ -132,7 +129,6 @@ List<Zona> crearZonas() {
         [6, 5],
       ],
     ),
-
 
     // ------------------------------------------------------
     // LILA
@@ -156,7 +152,6 @@ List<Zona> crearZonas() {
       ],
     ),
 
-
     // ------------------------------------------------------
     // ROJO
     // ------------------------------------------------------
@@ -179,6 +174,40 @@ List<Zona> crearZonas() {
       ],
     ),
   ];
+}
+
+
+// ==========================================================
+// LISTA GLOBAL DE ZONAS
+// ==========================================================
+// Se mantiene porque tus pruebas utilizan directamente:
+//
+//     zonas.length
+//     zonas.map(...)
+//     zonas.every(...)
+
+final List<Zona> zonas = crearZonas();
+
+
+// ==========================================================
+// FUNCIÓN GLOBAL PARA OBTENER VALORES
+// ==========================================================
+// Se mantiene para que tus pruebas actuales funcionen:
+//
+//     obtenerValoresRegion(tablero, Region.lila)
+//
+// Internamente utiliza la clase Tablero.
+
+List<int> obtenerValoresRegion(
+  List<List<int>> tablero,
+  Region region,
+) {
+  Tablero tableroJuego = Tablero(
+    celdas: tablero,
+    zonas: zonas,
+  );
+
+  return tableroJuego.obtenerValoresRegion(region);
 }
 
 
@@ -216,7 +245,6 @@ bool exactamenteDosNumeros(List<int> lista) {
   List<int> diferentes = [];
 
   for (int numero in lista) {
-
     if (!diferentes.contains(numero)) {
       diferentes.add(numero);
     }
@@ -247,20 +275,17 @@ Region determinarRegion(List<int> lista) {
     return Region.amarillo;
   }
 
-
   // Azul:
   // todos los números son iguales.
   if (todosMismoNumero(lista)) {
     return Region.azul;
   }
 
-
   // Lila:
   // existen exactamente dos números diferentes.
   if (exactamenteDosNumeros(lista)) {
     return Region.lila;
   }
-
 
   // Rojo:
   // todos los números son diferentes.
@@ -269,7 +294,6 @@ Region determinarRegion(List<int> lista) {
   if (diferentes.length == lista.length) {
     return Region.rojo;
   }
-
 
   // Verde:
   // cualquier otro caso.
