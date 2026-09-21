@@ -299,3 +299,55 @@ Region determinarRegion(List<int> lista) {
   // cualquier otro caso.
   return Region.verde;
 }
+
+// ==========================================================
+// BLOC DE INICIO
+// ==========================================================
+// Controla que los valores iniciales se hayan proporcionado
+// antes de permitir avanzar en el juego.
+//
+// Puede ser utilizado de forma local, sin ninguna librería.
+
+class InicioBloc {
+  List<List<int>>? _valoresIniciales;
+
+  // Indica si ya se proporcionaron los valores iniciales.
+  bool get valoresInicialesProporcionados {
+    return _valoresIniciales != null;
+  }
+
+  // Indica si el juego puede avanzar.
+  bool get puedeAvanzar {
+    return valoresInicialesProporcionados;
+  }
+
+  // Proporciona los valores iniciales.
+  void proporcionarValoresIniciales(
+    List<List<int>> valores,
+  ) {
+    _valoresIniciales = valores;
+  }
+
+  // Recupera los valores iniciales.
+  List<List<int>> get valoresIniciales {
+    if (_valoresIniciales == null) {
+      throw StateError(
+        'Primero se deben proporcionar los valores iniciales.',
+      );
+    }
+
+    return _valoresIniciales!;
+  }
+
+  // Intenta avanzar.
+  //
+  // Devuelve true si se puede avanzar.
+  // Devuelve false si todavía no existen valores iniciales.
+  bool avanzar() {
+    if (!puedeAvanzar) {
+      return false;
+    }
+
+    return true;
+  }
+}
