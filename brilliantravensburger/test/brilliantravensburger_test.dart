@@ -440,4 +440,80 @@ void main() {
 
   });
 
+   group('Pruebas del BLoC de inicio', () {
+
+  test('no permite avanzar si no se proporcionaron valores iniciales', () {
+    InicioBloc bloc = InicioBloc();
+
+    expect(
+      bloc.valoresInicialesProporcionados,
+      isFalse,
+    );
+
+    expect(
+      bloc.puedeAvanzar,
+      isFalse,
+    );
+
+    expect(
+      bloc.avanzar(),
+      isFalse,
+    );
+  });
+
+
+  test('permite proporcionar los valores iniciales', () {
+    InicioBloc bloc = InicioBloc();
+
+    List<List<int>> valores = [
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+    ];
+
+    bloc.proporcionarValoresIniciales(valores);
+
+    expect(
+      bloc.valoresInicialesProporcionados,
+      isTrue,
+    );
+
+    expect(
+      bloc.valoresIniciales,
+      same(valores),
+    );
+  });
+
+
+  test('permite avanzar después de proporcionar valores iniciales', () {
+    InicioBloc bloc = InicioBloc();
+
+    bloc.proporcionarValoresIniciales([
+      [1, 2],
+      [3, 4],
+    ]);
+
+    expect(
+      bloc.puedeAvanzar,
+      isTrue,
+    );
+
+    expect(
+      bloc.avanzar(),
+      isTrue,
+    );
+  });
+
+
+  test('no permite obtener los valores antes de proporcionarlos', () {
+    InicioBloc bloc = InicioBloc();
+
+    expect(
+      () => bloc.valoresIniciales,
+      throwsStateError,
+    );
+  });
+
+});
+
 }
