@@ -303,51 +303,159 @@ Region determinarRegion(List<int> lista) {
 // ==========================================================
 // BLOC DE INICIO
 // ==========================================================
-// Controla que los valores iniciales se hayan proporcionado
-// antes de permitir avanzar en el juego.
+// Antes de iniciar el juego se deben colocar exactamente
+// 6 números.
 //
-// Puede ser utilizado de forma local, sin ninguna librería.
+// Valores permitidos:
+// 1, 2, 3, 4, 5, 6
+//
+// Cada número solamente puede utilizarse UNA vez.
+//
+// Posiciones iniciales:
+//
+// 1,3
+// 2,6
+// 4,2
+// 4,5
+// 6,3
+// 7,5
 
 class InicioBloc {
-  List<List<int>>? _valoresIniciales;
+  final Tablero tablero;
 
-  // Indica si ya se proporcionaron los valores iniciales.
-  bool get valoresInicialesProporcionados {
-    return _valoresIniciales != null;
+  final List<List<int>> posicionesIniciales = [
+    [0, 2], // 1,3
+    [1, 5], // 2,6
+    [3, 1], // 4,2
+    [3, 4], // 4,5
+    [5, 2], // 6,3
+    [6, 4], // 7,5
+  ];
+
+  InicioBloc({
+    required this.tablero,
+  });
+
+
+  // --------------------------------------------------------
+  // Comprueba si una posición es una de las posiciones
+  // iniciales permitidas.
+  // --------------------------------------------------------
+
+  bool esPosicionInicial(int fila, int columna) {
+    return posicionesIniciales.any(
+      (posicion) =>
+          posicion[0] == fila &&
+          posicion[1] == columna,
+    );
   }
 
-  // Indica si el juego puede avanzar.
-  bool get puedeAvanzar {
-    return valoresInicialesProporcionados;
+
+  // --------------------------------------------------------
+  // Comprueba que el número esté entre 1 y 6.
+  // --------------------------------------------------------
+
+  bool numeroValido(int numero) {
+    return numero >= 1 && numero <= 6;
   }
 
-  // Proporciona los valores iniciales.
-  void proporcionarValoresIniciales(
-    List<List<int>> valores,
-  ) {
-    _valoresIniciales = valores;
-  }
 
-  // Recupera los valores iniciales.
-  List<List<int>> get valoresIniciales {
-    if (_valoresIniciales == null) {
-      throw StateError(
-        'Primero se deben proporcionar los valores iniciales.',
-      );
+  // --------------------------------------------------------
+  // Comprueba si un número ya fue utilizado en las
+  // posiciones iniciales.
+  // --------------------------------------------------------
+
+  bool numeroYaUtilizado(int numero) {
+
+    for (List<int> posicion in posicionesIniciales) {
+      int fila = posicion[0];
+      int columna = posicion[1];
+
+      if (tablero.celdas[fila][columna] == numero) {
+        return true;
+      }
     }
 
-    return _valoresIniciales!;
+    return false;
   }
 
-  // Intenta avanzar.
+
+  // --------------------------------------------------------
+  // Coloca un número en una posición inicial.
   //
-  // Devuelve true si se puede avanzar.
-  // Devuelve false si todavía no existen valores iniciales.
-  bool avanzar() {
-    if (!puedeAvanzar) {
+  // No permite:
+  // - posiciones incorrectas
+  // - números fuera de 1 a 6
+  // - números repetidos
+  // - sobrescribir una posición ya ocupada
+  // --------------------------------------------------------
+
+  bool colocarNumero(
+    int fila,
+    int columna,
+    int numero,
+  ) {
+
+    if (!esPosicionInicial(fila, columna)) {
       return false;
     }
 
+    if (!numeroValido(numero)) {
+      return false;
+    }
+
+    // No permite colocar dos veces el mismo número.
+    if (numeroYaUtilizado(numero)) {
+      return false;
+    }
+
+    // No permite sobrescribir una posición ya ocupada.
+    if (tablero.celdas[fila][columna] != 0) {
+      return false;
+    }
+
+    tablero.celdas[fila][columna] = numero;
+
     return true;
+  }
+
+
+  // --------------------------------------------------------
+  // Comprueba si las seis posiciones iniciales ya están
+  // ocupadas.
+  // --------------------------------------------------------
+
+  bool valoresInicialesProporcionados() {
+
+    for (List<int> posicion in posicionesIniciales) {
+
+      int fila = posicion[0];
+      int columna = posicion[1];
+
+      if (tablero.celdas[fila][columna] == 0) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+
+  // --------------------------------------------------------
+  // Indica si el juego puede avanzar.
+  // --------------------------------------------------------
+
+  bool get puedeAvanzar {
+    return valoresInicialesProporcionados();
+  }
+
+
+  // --------------------------------------------------------
+  // Permite avanzar únicamente cuando las seis posiciones
+  // tienen valores.
+  // --------------------------------------------------------
+
+  bool avanzar() {
+    return puedeAvanzar;
   }
 }

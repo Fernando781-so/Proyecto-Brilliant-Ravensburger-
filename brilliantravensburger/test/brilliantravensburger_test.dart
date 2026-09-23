@@ -440,80 +440,144 @@ void main() {
 
   });
 
-   group('Pruebas del BLoC de inicio', () {
+test('no permite repetir un número', () {
 
-  test('no permite avanzar si no se proporcionaron valores iniciales', () {
-    InicioBloc bloc = InicioBloc();
+  Tablero tablero = Tablero(
+    celdas: List.generate(
+      7,
+      (_) => List.generate(7, (_) => 0),
+    ),
+    zonas: zonas,
+  );
 
-    expect(
-      bloc.valoresInicialesProporcionados,
-      isFalse,
-    );
+  InicioBloc bloc = InicioBloc(
+    tablero: tablero,
+  );
 
-    expect(
-      bloc.puedeAvanzar,
-      isFalse,
-    );
+  expect(
+    bloc.colocarNumero(0, 2, 3),
+    isTrue,
+  );
 
-    expect(
-      bloc.avanzar(),
-      isFalse,
-    );
-  });
-
-
-  test('permite proporcionar los valores iniciales', () {
-    InicioBloc bloc = InicioBloc();
-
-    List<List<int>> valores = [
-      [1, 2, 3],
-      [4, 5, 6],
-      [7, 8, 9],
-    ];
-
-    bloc.proporcionarValoresIniciales(valores);
-
-    expect(
-      bloc.valoresInicialesProporcionados,
-      isTrue,
-    );
-
-    expect(
-      bloc.valoresIniciales,
-      same(valores),
-    );
-  });
-
-
-  test('permite avanzar después de proporcionar valores iniciales', () {
-    InicioBloc bloc = InicioBloc();
-
-    bloc.proporcionarValoresIniciales([
-      [1, 2],
-      [3, 4],
-    ]);
-
-    expect(
-      bloc.puedeAvanzar,
-      isTrue,
-    );
-
-    expect(
-      bloc.avanzar(),
-      isTrue,
-    );
-  });
-
-
-  test('no permite obtener los valores antes de proporcionarlos', () {
-    InicioBloc bloc = InicioBloc();
-
-    expect(
-      () => bloc.valoresIniciales,
-      throwsStateError,
-    );
-  });
-
+  expect(
+    bloc.colocarNumero(1, 5, 3),
+    isFalse,
+  );
 });
 
+
+test('permite utilizar cada número solamente una vez', () {
+
+  Tablero tablero = Tablero(
+    celdas: List.generate(
+      7,
+      (_) => List.generate(7, (_) => 0),
+    ),
+    zonas: zonas,
+  );
+
+  InicioBloc bloc = InicioBloc(
+    tablero: tablero,
+  );
+
+  expect(bloc.colocarNumero(0, 2, 1), isTrue);
+  expect(bloc.colocarNumero(1, 5, 2), isTrue);
+  expect(bloc.colocarNumero(3, 1, 3), isTrue);
+  expect(bloc.colocarNumero(3, 4, 4), isTrue);
+  expect(bloc.colocarNumero(5, 2, 5), isTrue);
+  expect(bloc.colocarNumero(6, 4, 6), isTrue);
+});
+
+
+test('no permite sobrescribir una posición ya ocupada', () {
+
+  Tablero tablero = Tablero(
+    celdas: List.generate(
+      7,
+      (_) => List.generate(7, (_) => 0),
+    ),
+    zonas: zonas,
+  );
+
+  InicioBloc bloc = InicioBloc(
+    tablero: tablero,
+  );
+
+  expect(
+    bloc.colocarNumero(0, 2, 1),
+    isTrue,
+  );
+
+  expect(
+    bloc.colocarNumero(0, 2, 2),
+    isFalse,
+  );
+});
+
+
+test('los seis números deben ser diferentes', () {
+
+  Tablero tablero = Tablero(
+    celdas: List.generate(
+      7,
+      (_) => List.generate(7, (_) => 0),
+    ),
+    zonas: zonas,
+  );
+
+  InicioBloc bloc = InicioBloc(
+    tablero: tablero,
+  );
+
+  bloc.colocarNumero(0, 2, 1);
+  bloc.colocarNumero(1, 5, 2);
+  bloc.colocarNumero(3, 1, 3);
+  bloc.colocarNumero(3, 4, 4);
+  bloc.colocarNumero(5, 2, 5);
+
+  // Se intenta repetir el número 5.
+  expect(
+    bloc.colocarNumero(6, 4, 5),
+    isFalse,
+  );
+
+  // Todavía falta el número 6.
+  expect(
+    bloc.puedeAvanzar,
+    isFalse,
+  );
+});
+
+
+test('puede avanzar cuando están los números del 1 al 6 sin repetir', () {
+
+  Tablero tablero = Tablero(
+    celdas: List.generate(
+      7,
+      (_) => List.generate(7, (_) => 0),
+    ),
+    zonas: zonas,
+  );
+
+  InicioBloc bloc = InicioBloc(
+    tablero: tablero,
+  );
+
+  bloc.colocarNumero(0, 2, 1);
+  bloc.colocarNumero(1, 5, 2);
+  bloc.colocarNumero(3, 1, 3);
+  bloc.colocarNumero(3, 4, 4);
+  bloc.colocarNumero(5, 2, 5);
+  bloc.colocarNumero(6, 4, 6);
+
+  expect(
+    bloc.puedeAvanzar,
+    isTrue,
+  );
+
+  expect(
+    bloc.avanzar(),
+    isTrue,
+  );
+});
 }
