@@ -99,9 +99,7 @@ void main() {
 
     test('cada zona contiene posiciones válidas del tablero', () {
       for (Zona zona in zonas) {
-
         for (List<int> posicion in zona.posiciones) {
-
           expect(
             posicion,
             hasLength(2),
@@ -440,144 +438,206 @@ void main() {
 
   });
 
-test('no permite repetir un número', () {
 
-  Tablero tablero = Tablero(
-    celdas: List.generate(
-      7,
-      (_) => List.generate(7, (_) => 0),
-    ),
-    zonas: zonas,
-  );
+  // ========================================================
+  // PRUEBAS DE INICIO BLOC
+  // ========================================================
 
-  InicioBloc bloc = InicioBloc(
-    tablero: tablero,
-  );
+  group('Pruebas de InicioBloc', () {
 
-  expect(
-    bloc.colocarNumero(0, 2, 3),
-    isTrue,
-  );
+    test('no permite repetir un número', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(
+          7,
+          (_) => List.generate(7, (_) => 0),
+        ),
+        zonas: zonas,
+      );
 
-  expect(
-    bloc.colocarNumero(1, 5, 3),
-    isFalse,
-  );
-});
+      InicioBloc bloc = InicioBloc(
+        tablero: tablero,
+      );
 
+      expect(
+        bloc.colocarNumero(0, 2, 3),
+        isTrue,
+      );
 
-test('permite utilizar cada número solamente una vez', () {
-
-  Tablero tablero = Tablero(
-    celdas: List.generate(
-      7,
-      (_) => List.generate(7, (_) => 0),
-    ),
-    zonas: zonas,
-  );
-
-  InicioBloc bloc = InicioBloc(
-    tablero: tablero,
-  );
-
-  expect(bloc.colocarNumero(0, 2, 1), isTrue);
-  expect(bloc.colocarNumero(1, 5, 2), isTrue);
-  expect(bloc.colocarNumero(3, 1, 3), isTrue);
-  expect(bloc.colocarNumero(3, 4, 4), isTrue);
-  expect(bloc.colocarNumero(5, 2, 5), isTrue);
-  expect(bloc.colocarNumero(6, 4, 6), isTrue);
-});
+      expect(
+        bloc.colocarNumero(1, 5, 3),
+        isFalse,
+      );
+    });
 
 
-test('no permite sobrescribir una posición ya ocupada', () {
+    test('permite utilizar cada número solamente una vez', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(
+          7,
+          (_) => List.generate(7, (_) => 0),
+        ),
+        zonas: zonas,
+      );
 
-  Tablero tablero = Tablero(
-    celdas: List.generate(
-      7,
-      (_) => List.generate(7, (_) => 0),
-    ),
-    zonas: zonas,
-  );
+      InicioBloc bloc = InicioBloc(
+        tablero: tablero,
+      );
 
-  InicioBloc bloc = InicioBloc(
-    tablero: tablero,
-  );
-
-  expect(
-    bloc.colocarNumero(0, 2, 1),
-    isTrue,
-  );
-
-  expect(
-    bloc.colocarNumero(0, 2, 2),
-    isFalse,
-  );
-});
+      expect(bloc.colocarNumero(0, 2, 1), isTrue);
+      expect(bloc.colocarNumero(1, 5, 2), isTrue);
+      expect(bloc.colocarNumero(3, 1, 3), isTrue);
+      expect(bloc.colocarNumero(3, 4, 4), isTrue);
+      expect(bloc.colocarNumero(5, 2, 5), isTrue);
+      expect(bloc.colocarNumero(6, 4, 6), isTrue);
+    });
 
 
-test('los seis números deben ser diferentes', () {
+    test('no permite sobrescribir una posición ya ocupada', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(
+          7,
+          (_) => List.generate(7, (_) => 0),
+        ),
+        zonas: zonas,
+      );
 
-  Tablero tablero = Tablero(
-    celdas: List.generate(
-      7,
-      (_) => List.generate(7, (_) => 0),
-    ),
-    zonas: zonas,
-  );
+      InicioBloc bloc = InicioBloc(
+        tablero: tablero,
+      );
 
-  InicioBloc bloc = InicioBloc(
-    tablero: tablero,
-  );
+      expect(
+        bloc.colocarNumero(0, 2, 1),
+        isTrue,
+      );
 
-  bloc.colocarNumero(0, 2, 1);
-  bloc.colocarNumero(1, 5, 2);
-  bloc.colocarNumero(3, 1, 3);
-  bloc.colocarNumero(3, 4, 4);
-  bloc.colocarNumero(5, 2, 5);
-
-  // Se intenta repetir el número 5.
-  expect(
-    bloc.colocarNumero(6, 4, 5),
-    isFalse,
-  );
-
-  // Todavía falta el número 6.
-  expect(
-    bloc.puedeAvanzar,
-    isFalse,
-  );
-});
+      expect(
+        bloc.colocarNumero(0, 2, 2),
+        isFalse,
+      );
+    });
 
 
-test('puede avanzar cuando están los números del 1 al 6 sin repetir', () {
+    test('los seis números deben ser diferentes', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(
+          7,
+          (_) => List.generate(7, (_) => 0),
+        ),
+        zonas: zonas,
+      );
 
-  Tablero tablero = Tablero(
-    celdas: List.generate(
-      7,
-      (_) => List.generate(7, (_) => 0),
-    ),
-    zonas: zonas,
-  );
+      InicioBloc bloc = InicioBloc(
+        tablero: tablero,
+      );
 
-  InicioBloc bloc = InicioBloc(
-    tablero: tablero,
-  );
+      bloc.colocarNumero(0, 2, 1);
+      bloc.colocarNumero(1, 5, 2);
+      bloc.colocarNumero(3, 1, 3);
+      bloc.colocarNumero(3, 4, 4);
+      bloc.colocarNumero(5, 2, 5);
 
-  bloc.colocarNumero(0, 2, 1);
-  bloc.colocarNumero(1, 5, 2);
-  bloc.colocarNumero(3, 1, 3);
-  bloc.colocarNumero(3, 4, 4);
-  bloc.colocarNumero(5, 2, 5);
-  bloc.colocarNumero(6, 4, 6);
+      // Se intenta repetir el número 5.
+      expect(
+        bloc.colocarNumero(6, 4, 5),
+        isFalse,
+      );
 
-  expect(
-    bloc.puedeAvanzar,
-    isTrue,
-  );
+      // Todavía falta el número 6.
+      expect(
+        bloc.puedeAvanzar,
+        isFalse,
+      );
+    });
 
-  expect(
-    bloc.avanzar(),
-    isTrue,
-  );
-});
+
+    test('puede avanzar cuando están los números del 1 al 6 sin repetir', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(
+          7,
+          (_) => List.generate(7, (_) => 0),
+        ),
+        zonas: zonas,
+      );
+
+      InicioBloc bloc = InicioBloc(
+        tablero: tablero,
+      );
+
+      bloc.colocarNumero(0, 2, 1);
+      bloc.colocarNumero(1, 5, 2);
+      bloc.colocarNumero(3, 1, 3);
+      bloc.colocarNumero(3, 4, 4);
+      bloc.colocarNumero(5, 2, 5);
+      bloc.colocarNumero(6, 4, 6);
+
+      expect(
+        bloc.puedeAvanzar,
+        isTrue,
+      );
+
+      expect(
+        bloc.avanzar(),
+        isTrue,
+      );
+    });
+
+  });
+
+
+  // ========================================================
+  // PRUEBAS DE PUNTUACIÓN DE REGIONES
+  // ========================================================
+
+  group('Pruebas de Puntuación de Regiones', () {
+
+    test('Cada región asigna su bolsa de puntos correcta', () {
+      expect(obtenerBolsaPuntosRegion(Region.amarillo), [8, 6, 4]);
+      expect(obtenerBolsaPuntosRegion(Region.verde), [4, 3, 2]);
+      expect(obtenerBolsaPuntosRegion(Region.azul), [7, 5, 3]);
+      expect(obtenerBolsaPuntosRegion(Region.rojo), [6, 4, 2]);
+      expect(obtenerBolsaPuntosRegion(Region.lila), [6, 4, 2]);
+    });
+
+    test('Zona incompleta otorga 0 puntos', () {
+      Tablero tablero = Tablero(
+        celdas: List.generate(7, (_) => List.generate(7, (_) => 0)),
+        zonas: zonas,
+      );
+
+      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
+      expect(zonaAzul.obtenerPuntuacion(tablero), 0);
+    });
+
+    test('Zona Azul completada válidamente otorga el puntaje máximo de su bolsa (7 pts)', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.generate(7, (_) => 0));
+
+      // Llenar casillas de la región Azul con el mismo número (4)
+      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
+      for (var pos in zonaAzul.posiciones) {
+        celdas[pos[0]][pos[1]] = 4;
+      }
+
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(zonaAzul.esValida(tablero), isTrue);
+      expect(zonaAzul.obtenerPuntuacion(tablero), 7);
+    });
+
+    test('Zona Azul con números diferentes es inválida y otorga 0 pts', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.generate(7, (_) => 0));
+
+      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
+      int val = 1;
+      for (var pos in zonaAzul.posiciones) {
+        celdas[pos[0]][pos[1]] = val++;
+      }
+
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(zonaAzul.esValida(tablero), isFalse);
+      expect(zonaAzul.obtenerPuntuacion(tablero), 0);
+    });
+
+  });
+
 }
