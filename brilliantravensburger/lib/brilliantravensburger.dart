@@ -10,32 +10,115 @@ enum Region {
   rojo,
 }
 
+// ==========================================================
+// BOLSA DE PUNTOS POR REGIÓN
+// ==========================================================
+// Define los puntos que cada color/región puede otorgar.
+
+List<int> obtenerBolsaPuntosRegion(Region region) {
+  switch (region) {
+    case Region.amarillo:
+      return [8, 6, 4];
+    case Region.verde:
+      return [4, 3, 2];
+    case Region.azul:
+      return [7, 5, 3];
+    case Region.rojo:
+      return [6, 4, 2];
+    case Region.lila:
+      return [6, 4, 2];
+  }
+}
 
 // ==========================================================
 // ZONA
 // ==========================================================
-// Una Zona representa una región del tablero y las
-// posiciones de las celdas que pertenecen a ella.
+// Una Zona representa una región del tablero, las
+// posiciones de las celdas que pertenecen a ella y su bolsa de puntos.
 
 class Zona {
   final Region region;
   final List<List<int>> posiciones;
+  final List<int> bolsaPuntos;
 
   Zona({
     required this.region,
     required this.posiciones,
-  });
+    List<int>? bolsaPuntos,
+  }) : bolsaPuntos = bolsaPuntos ?? obtenerBolsaPuntosRegion(region);
+
+  // Comprueba si todas las celdas de esta zona tienen número (distinto de 0)
+  bool estaCompletada(Tablero tablero) {
+    for (List<int> pos in posiciones) {
+      int fila = pos[0];
+      int columna = pos[1];
+      if (tablero.celdas[fila][columna] == 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Comprueba si la zona está llena y además cumple con la regla de su color
+  bool esValida(Tablero tablero) {
+    if (!estaCompletada(tablero)) {
+      return false;
+    }
+    List<int> valores = tablero.obtenerValoresRegion(region);
+    return esReglaCumplida(region, valores);
+  }
+
+  // Obtiene los puntos de esta zona según su bolsa de puntos.
+  // Por defecto toma el valor máximo disponible (índice 0).
+  int obtenerPuntuacion(Tablero tablero, {int indiceBolsa = 0}) {
+    if (!esValida(tablero)) {
+      return 0;
+    }
+    if (bolsaPuntos.isEmpty) {
+      return 0;
+    }
+    if (indiceBolsa >= bolsaPuntos.length) {
+      return bolsaPuntos.last;
+    }
+    return bolsaPuntos[indiceBolsa];
+  }
 }
 
+// ==========================================================
+// VERIFICAR REGLAS DE CADA COLOR EN ZONA
+// ==========================================================
+
+bool esReglaCumplida(Region region, List<int> valores) {
+  if (valores.isEmpty || valores.contains(0)) {
+    return false;
+  }
+
+  switch (region) {
+    case Region.amarillo:
+      // Las 5 casillas amarillas deben estar ocupadas
+      return valores.length == 5;
+
+    case Region.azul:
+      // Todos los números deben ser iguales
+      return todosMismoNumero(valores);
+
+    case Region.lila:
+      // Exactamente dos números diferentes
+      return exactamenteDosNumeros(valores);
+
+    case Region.rojo:
+      // Todos los números deben ser diferentes
+      return valores.toSet().length == valores.length;
+
+    case Region.verde:
+      // Cualquier combinación es válida
+      return true;
+  }
+}
 
 // ==========================================================
 // TABLERO
 // ==========================================================
-// Esta es la clase que une el tablero con las zonas.
-//
-// El tablero guarda:
-// 1. Los valores de sus celdas.
-// 2. Las zonas que existen en el tablero.
 
 class Tablero {
   final List<List<int>> celdas;
@@ -64,21 +147,37 @@ class Tablero {
 
     return valores;
   }
-}
 
+  // --------------------------------------------------------
+  // PUNTUACIÓN TOTAL Y RESUMEN
+  // --------------------------------------------------------
+
+  // Calcula la suma total de puntos otorgados por todas las zonas completadas
+  int calcularPuntajeTotal() {
+    int total = 0;
+    for (Zona zona in zonas) {
+      total += zona.obtenerPuntuacion(this);
+    }
+    return total;
+  }
+
+  // Devuelve el puntaje desglosado por cada región
+  Map<Region, int> obtenerResumenPuntos() {
+    Map<Region, int> resumen = {};
+    for (Zona zona in zonas) {
+      resumen[zona.region] = zona.obtenerPuntuacion(this);
+    }
+    return resumen;
+  }
+}
 
 // ==========================================================
 // CREAR ZONAS
 // ==========================================================
-// Aquí se define qué celdas pertenecen a cada región.
 
 List<Zona> crearZonas() {
   return [
-
-    // ------------------------------------------------------
-    // AMARILLO
-    // ------------------------------------------------------
-
+    // AMARILLO (Región única de 5 posiciones)
     Zona(
       region: Region.amarillo,
       posiciones: [
@@ -90,10 +189,7 @@ List<Zona> crearZonas() {
       ],
     ),
 
-    // ------------------------------------------------------
     // VERDE
-    // ------------------------------------------------------
-
     Zona(
       region: Region.verde,
       posiciones: [
@@ -112,10 +208,7 @@ List<Zona> crearZonas() {
       ],
     ),
 
-    // ------------------------------------------------------
     // AZUL
-    // ------------------------------------------------------
-
     Zona(
       region: Region.azul,
       posiciones: [
@@ -130,10 +223,7 @@ List<Zona> crearZonas() {
       ],
     ),
 
-    // ------------------------------------------------------
     // LILA
-    // ------------------------------------------------------
-
     Zona(
       region: Region.lila,
       posiciones: [
@@ -152,10 +242,7 @@ List<Zona> crearZonas() {
       ],
     ),
 
-    // ------------------------------------------------------
     // ROJO
-    // ------------------------------------------------------
-
     Zona(
       region: Region.rojo,
       posiciones: [
@@ -176,27 +263,7 @@ List<Zona> crearZonas() {
   ];
 }
 
-
-// ==========================================================
-// LISTA GLOBAL DE ZONAS
-// ==========================================================
-// Se mantiene porque tus pruebas utilizan directamente:
-//
-//     zonas.length
-//     zonas.map(...)
-//     zonas.every(...)
-
 final List<Zona> zonas = crearZonas();
-
-
-// ==========================================================
-// FUNCIÓN GLOBAL PARA OBTENER VALORES
-// ==========================================================
-// Se mantiene para que tus pruebas actuales funcionen:
-//
-//     obtenerValoresRegion(tablero, Region.lila)
-//
-// Internamente utiliza la clase Tablero.
 
 List<int> obtenerValoresRegion(
   List<List<int>> tablero,
@@ -210,12 +277,10 @@ List<int> obtenerValoresRegion(
   return tableroJuego.obtenerValoresRegion(region);
 }
 
-
 // ==========================================================
 // REGLAS
 // ==========================================================
 
-// Verifica si todos los números de la lista son iguales.
 bool todosMismoNumero(List<int> lista) {
   if (lista.isEmpty) {
     return false;
@@ -232,15 +297,6 @@ bool todosMismoNumero(List<int> lista) {
   return true;
 }
 
-
-// ==========================================================
-// REGLA LILA
-// ==========================================================
-
-// Debe contener exactamente 2 números diferentes.
-// Los números se pueden repetir,
-// pero no puede existir un tercer número diferente.
-
 bool exactamenteDosNumeros(List<int> lista) {
   List<int> diferentes = [];
 
@@ -249,76 +305,39 @@ bool exactamenteDosNumeros(List<int> lista) {
       diferentes.add(numero);
     }
 
-    // Si aparecen 3 números diferentes,
-    // no cumple la regla.
     if (diferentes.length > 2) {
       return false;
     }
   }
 
-  // Debe haber exactamente 2 números diferentes.
   return diferentes.length == 2;
 }
 
-
-// ==========================================================
-// DETERMINAR REGION
-// ==========================================================
-
-// Determina el color/región según los números de una zona.
-
 Region determinarRegion(List<int> lista) {
-
-  // Amarillo:
-  // solamente hay una celda.
   if (lista.length == 1) {
     return Region.amarillo;
   }
 
-  // Azul:
-  // todos los números son iguales.
   if (todosMismoNumero(lista)) {
     return Region.azul;
   }
 
-  // Lila:
-  // existen exactamente dos números diferentes.
   if (exactamenteDosNumeros(lista)) {
     return Region.lila;
   }
 
-  // Rojo:
-  // todos los números son diferentes.
   List<int> diferentes = lista.toSet().toList();
 
   if (diferentes.length == lista.length) {
     return Region.rojo;
   }
 
-  // Verde:
-  // cualquier otro caso.
   return Region.verde;
 }
 
 // ==========================================================
 // BLOC DE INICIO
 // ==========================================================
-// Antes de iniciar el juego se deben colocar exactamente
-// 6 números.
-//
-// Valores permitidos:
-// 1, 2, 3, 4, 5, 6
-//
-// Cada número solamente puede utilizarse UNA vez.
-//
-// Posiciones iniciales:
-//
-// 1,3
-// 2,6
-// 4,2
-// 4,5
-// 6,3
-// 7,5
 
 class InicioBloc {
   final Tablero tablero;
@@ -336,12 +355,6 @@ class InicioBloc {
     required this.tablero,
   });
 
-
-  // --------------------------------------------------------
-  // Comprueba si una posición es una de las posiciones
-  // iniciales permitidas.
-  // --------------------------------------------------------
-
   bool esPosicionInicial(int fila, int columna) {
     return posicionesIniciales.any(
       (posicion) =>
@@ -350,23 +363,11 @@ class InicioBloc {
     );
   }
 
-
-  // --------------------------------------------------------
-  // Comprueba que el número esté entre 1 y 6.
-  // --------------------------------------------------------
-
   bool numeroValido(int numero) {
     return numero >= 1 && numero <= 6;
   }
 
-
-  // --------------------------------------------------------
-  // Comprueba si un número ya fue utilizado en las
-  // posiciones iniciales.
-  // --------------------------------------------------------
-
   bool numeroYaUtilizado(int numero) {
-
     for (List<int> posicion in posicionesIniciales) {
       int fila = posicion[0];
       int columna = posicion[1];
@@ -379,23 +380,11 @@ class InicioBloc {
     return false;
   }
 
-
-  // --------------------------------------------------------
-  // Coloca un número en una posición inicial.
-  //
-  // No permite:
-  // - posiciones incorrectas
-  // - números fuera de 1 a 6
-  // - números repetidos
-  // - sobrescribir una posición ya ocupada
-  // --------------------------------------------------------
-
   bool colocarNumero(
     int fila,
     int columna,
     int numero,
   ) {
-
     if (!esPosicionInicial(fila, columna)) {
       return false;
     }
@@ -404,12 +393,10 @@ class InicioBloc {
       return false;
     }
 
-    // No permite colocar dos veces el mismo número.
     if (numeroYaUtilizado(numero)) {
       return false;
     }
 
-    // No permite sobrescribir una posición ya ocupada.
     if (tablero.celdas[fila][columna] != 0) {
       return false;
     }
@@ -420,15 +407,8 @@ class InicioBloc {
   }
 
 
-  // --------------------------------------------------------
-  // Comprueba si las seis posiciones iniciales ya están
-  // ocupadas.
-  // --------------------------------------------------------
-
   bool valoresInicialesProporcionados() {
-
     for (List<int> posicion in posicionesIniciales) {
-
       int fila = posicion[0];
       int columna = posicion[1];
 
@@ -440,20 +420,9 @@ class InicioBloc {
     return true;
   }
 
-
-  // --------------------------------------------------------
-  // Indica si el juego puede avanzar.
-  // --------------------------------------------------------
-
   bool get puedeAvanzar {
     return valoresInicialesProporcionados();
   }
-
-
-  // --------------------------------------------------------
-  // Permite avanzar únicamente cuando las seis posiciones
-  // tienen valores.
-  // --------------------------------------------------------
 
   bool avanzar() {
     return puedeAvanzar;
