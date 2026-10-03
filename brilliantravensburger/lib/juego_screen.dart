@@ -130,15 +130,18 @@ class _JuegoScreenState extends State<JuegoScreen> {
     _lanzarDadosAutomatico();
   }
 
+  // Al seleccionar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
     bool esValida = posicionesValidas.any((p) => p[0] == fila && p[1] == columna);
 
     if (!esValida) return;
 
+    // Colocar temporalmente el número en la matriz
     setState(() {
       widget.tablero.celdas[fila][columna] = numeroColocar;
     });
 
+    // Cuadro de confirmación con opción de deshacer / cancelar
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -152,9 +155,25 @@ class _JuegoScreenState extends State<JuegoScreen> {
           ],
         ),
         content: Text(
-          'Se ha colocado el número $numeroColocar usando el $numeroAncla como ancla.\n\nPresiona el botón para continuar con el siguiente turno.',
+          'Se ha colocado el número $numeroColocar usando el $numeroAncla como ancla.\n\n¿Deseas confirmar la jugada y avanzar de turno, o cancelar y corregir?',
         ),
         actions: [
+          // BOTÓN CANCELAR / DESHACER
+          TextButton.icon(
+            onPressed: () {
+              setState(() {
+                widget.tablero.celdas[fila][columna] = 0; // Se revierte la jugada
+              });
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.undo, color: Colors.red),
+            label: const Text(
+              'Deshacer',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+
+          // BOTÓN CONFIRMAR Y AVANZAR
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green.shade600,
@@ -336,7 +355,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                                     '+$numeroColocar',
                                     style: TextStyle(
                                       fontSize: 18,
-                                      fontWeight: FontWeight.w900,
+                                      fontWeight: FontWeight.w800,
                                       color: Colors.amber.shade900,
                                     ),
                                   )
