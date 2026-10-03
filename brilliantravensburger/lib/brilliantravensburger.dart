@@ -1,3 +1,4 @@
+
 // ==========================================================
 // TIPOS / REGIONES
 // ==========================================================
@@ -13,7 +14,6 @@ enum Region {
 // ==========================================================
 // BOLSA DE PUNTOS POR REGIÓN
 // ==========================================================
-// Define los puntos que cada color/región puede otorgar.
 
 List<int> obtenerBolsaPuntosRegion(Region region) {
   switch (region) {
@@ -33,8 +33,6 @@ List<int> obtenerBolsaPuntosRegion(Region region) {
 // ==========================================================
 // ZONA
 // ==========================================================
-// Una Zona representa una región del tablero, las
-// posiciones de las celdas que pertenecen a ella y su bolsa de puntos.
 
 class Zona {
   final Region region;
@@ -47,7 +45,6 @@ class Zona {
     List<int>? bolsaPuntos,
   }) : bolsaPuntos = bolsaPuntos ?? obtenerBolsaPuntosRegion(region);
 
-  // Comprueba si todas las celdas de esta zona tienen número (distinto de 0)
   bool estaCompletada(Tablero tablero) {
     for (List<int> pos in posiciones) {
       int fila = pos[0];
@@ -59,7 +56,6 @@ class Zona {
     return true;
   }
 
-  // Comprueba si la zona está llena y además cumple con la regla de su color
   bool esValida(Tablero tablero) {
     if (!estaCompletada(tablero)) {
       return false;
@@ -68,8 +64,6 @@ class Zona {
     return esReglaCumplida(region, valores);
   }
 
-  // Obtiene los puntos de esta zona según su bolsa de puntos.
-  // Por defecto toma el valor máximo disponible (índice 0).
   int obtenerPuntuacion(Tablero tablero, {int indiceBolsa = 0}) {
     if (!esValida(tablero)) {
       return 0;
@@ -95,23 +89,18 @@ bool esReglaCumplida(Region region, List<int> valores) {
 
   switch (region) {
     case Region.amarillo:
-      // Las 5 casillas amarillas deben estar ocupadas
       return valores.length == 5;
 
     case Region.azul:
-      // Todos los números deben ser iguales
       return todosMismoNumero(valores);
 
     case Region.lila:
-      // Exactamente dos números diferentes
       return exactamenteDosNumeros(valores);
 
     case Region.rojo:
-      // Todos los números deben ser diferentes
       return valores.toSet().length == valores.length;
 
     case Region.verde:
-      // Cualquier combinación es válida
       return true;
   }
 }
@@ -129,8 +118,6 @@ class Tablero {
     required this.zonas,
   });
 
-  // Obtiene los valores de las celdas que pertenecen
-  // a una región determinada.
   List<int> obtenerValoresRegion(Region region) {
     List<int> valores = [];
 
@@ -148,11 +135,6 @@ class Tablero {
     return valores;
   }
 
-  // --------------------------------------------------------
-  // PUNTUACIÓN TOTAL Y RESUMEN
-  // --------------------------------------------------------
-
-  // Calcula la suma total de puntos otorgados por todas las zonas completadas
   int calcularPuntajeTotal() {
     int total = 0;
     for (Zona zona in zonas) {
@@ -161,7 +143,6 @@ class Tablero {
     return total;
   }
 
-  // Devuelve el puntaje desglosado por cada región
   Map<Region, int> obtenerResumenPuntos() {
     Map<Region, int> resumen = {};
     for (Zona zona in zonas) {
@@ -177,7 +158,6 @@ class Tablero {
 
 List<Zona> crearZonas() {
   return [
-    // AMARILLO (Región única de 5 posiciones)
     Zona(
       region: Region.amarillo,
       posiciones: [
@@ -188,8 +168,6 @@ List<Zona> crearZonas() {
         [6, 6],
       ],
     ),
-
-    // VERDE
     Zona(
       region: Region.verde,
       posiciones: [
@@ -207,8 +185,6 @@ List<Zona> crearZonas() {
         [4, 0],
       ],
     ),
-
-    // AZUL
     Zona(
       region: Region.azul,
       posiciones: [
@@ -222,8 +198,6 @@ List<Zona> crearZonas() {
         [6, 5],
       ],
     ),
-
-    // LILA
     Zona(
       region: Region.lila,
       posiciones: [
@@ -241,8 +215,6 @@ List<Zona> crearZonas() {
         [6, 2],
       ],
     ),
-
-    // ROJO
     Zona(
       region: Region.rojo,
       posiciones: [
@@ -406,7 +378,6 @@ class InicioBloc {
     return true;
   }
 
-
   bool valoresInicialesProporcionados() {
     for (List<int> posicion in posicionesIniciales) {
       int fila = posicion[0];
@@ -427,4 +398,101 @@ class InicioBloc {
   bool avanzar() {
     return puedeAvanzar;
   }
+}
+
+// ==========================================================
+// LÓGICA DE DADOS Y COLOCACIÓN POR ANCLA
+// ==========================================================
+
+bool esColocacionPermitidaEnRegion(
+  Tablero tablero,
+  int fila,
+  int columna,
+  int numero,
+) {
+  Zona? zonaActual;
+  for (var zona in tablero.zonas) {
+    if (zona.posiciones.any((p) => p[0] == fila && p[1] == columna)) {
+      zonaActual = zona;
+      break;
+    }
+  }
+
+  if (zonaActual == null) return false;
+
+  List<int> valoresExistentes = [];
+  for (var pos in zonaActual.posiciones) {
+    int r = pos[0];
+    int c = pos[1];
+    int val = tablero.celdas[r][c];
+    if (val != 0 && !(r == fila && c == columna)) {
+      valoresExistentes.add(val);
+    }
+  }
+
+  List<int> futurosValores = [...valoresExistentes, numero];
+
+  switch (zonaActual.region) {
+    case Region.amarillo:
+      return futurosValores.length <= 5;
+
+    case Region.verde:
+      return true;
+
+    case Region.azul:
+      return todosMismoNumero(futurosValores);
+
+    case Region.lila:
+      return exactamenteDosNumeros(futurosValores);
+
+    case Region.rojo:
+      return futurosValores.toSet().length == futurosValores.length;
+  }
+}
+
+List<List<int>> obtenerPosicionesValidas(
+  Tablero tablero,
+  int dadoAncla,
+  int dadoColocar,
+) {
+  List<List<int>> posicionesValidas = [];
+
+  for (int r = 0; r < 7; r++) {
+    for (int c = 0; c < 7; c++) {
+      if (tablero.celdas[r][c] != 0) continue;
+
+      List<List<int>> vecinos = [
+        [r - 1, c],
+        [r + 1, c],
+        [r, c - 1],
+        [r, c + 1],
+      ];
+
+      bool adyacenteAAncla = false;
+      for (var pos in vecinos) {
+        int vr = pos[0];
+        int vc = pos[1];
+        if (vr >= 0 && vr < 7 && vc >= 0 && vc < 7) {
+          if (tablero.celdas[vr][vc] == dadoAncla) {
+            adyacenteAAncla = true;
+            break;
+          }
+        }
+      }
+
+      if (!adyacenteAAncla) continue;
+
+      if (esColocacionPermitidaEnRegion(tablero, r, c, dadoColocar)) {
+        posicionesValidas.add([r, c]);
+      }
+    }
+  }
+
+  return posicionesValidas;
+}
+
+bool hayMovimientosPosibles(Tablero tablero, int dado1, int dado2) {
+  List<List<int>> movs1 = obtenerPosicionesValidas(tablero, dado1, dado2);
+  List<List<int>> movs2 = obtenerPosicionesValidas(tablero, dado2, dado1);
+  return movs1.isNotEmpty || movs2.isNotEmpty;
 }
