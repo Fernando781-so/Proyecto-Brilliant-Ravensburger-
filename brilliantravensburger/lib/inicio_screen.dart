@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
+import 'juego_screen.dart';
 
 class InicioScreen extends StatefulWidget {
   const InicioScreen({super.key});
@@ -12,7 +13,6 @@ class _InicioScreenState extends State<InicioScreen> {
   late Tablero tablero;
   late InicioBloc bloc;
 
-  // Guarda la posición [fila, columna] donde ocurrió la explosión
   List<int>? _posicionExplosion;
 
   @override
@@ -25,7 +25,6 @@ class _InicioScreenState extends State<InicioScreen> {
     bloc = InicioBloc(tablero: tablero);
   }
 
-  // Obtener región de una casilla
   Region _obtenerRegionCasilla(int fila, int columna) {
     for (var zona in tablero.zonas) {
       if (zona.posiciones.any((p) => p[0] == fila && p[1] == columna)) {
@@ -35,7 +34,6 @@ class _InicioScreenState extends State<InicioScreen> {
     return Region.verde;
   }
 
-  // Al tocar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
     if (!bloc.esPosicionInicial(fila, columna)) {
       ScaffoldMessenger.of(context).clearSnackBars();
@@ -52,7 +50,6 @@ class _InicioScreenState extends State<InicioScreen> {
     _mostrarMenuSeleccionNumero(fila, columna);
   }
 
-  // Menú emergente para seleccionar/mover el número de la casilla
   void _mostrarMenuSeleccionNumero(int fila, int columna) {
     int valorActual = tablero.celdas[fila][columna];
 
@@ -77,8 +74,6 @@ class _InicioScreenState extends State<InicioScreen> {
                 style: TextStyle(fontSize: 13, color: Colors.black54),
               ),
               const SizedBox(height: 16),
-              
-              // Rejilla con los números del 1 al 6
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -120,22 +115,19 @@ class _InicioScreenState extends State<InicioScreen> {
                       onPressed: () {
                         List<int>? origenAnterior;
 
-                        // 1. Buscar si el número estaba en otra casilla para explotarlo
                         for (var pos in bloc.posicionesIniciales) {
                           int r = pos[0];
                           int c = pos[1];
                           if (tablero.celdas[r][c] == num && !(r == fila && c == columna)) {
                             origenAnterior = [r, c];
-                            tablero.celdas[r][c] = 0; // Se remueve de la anterior
+                            tablero.celdas[r][c] = 0;
                           }
                         }
 
-                        // 2. Colocar el número en la nueva posición
                         setState(() {
                           tablero.celdas[fila][columna] = 0;
                           bloc.colocarNumero(fila, columna, num);
 
-                          // Si vino de otra casilla, desencadenar la animación de explosión
                           if (origenAnterior != null) {
                             _posicionExplosion = origenAnterior;
                           }
@@ -143,7 +135,6 @@ class _InicioScreenState extends State<InicioScreen> {
 
                         Navigator.of(context).pop();
 
-                        // Notificación contextual al jugador
                         if (origenAnterior != null) {
                           ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -185,8 +176,6 @@ class _InicioScreenState extends State<InicioScreen> {
                   );
                 }),
               ),
-
-              // Botón para borrar/quitar número
               if (valorActual != 0) ...[
                 const SizedBox(height: 20),
                 TextButton.icon(
@@ -238,8 +227,6 @@ class _InicioScreenState extends State<InicioScreen> {
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
               ),
             ),
-
-            // TABLERO DE 7x7
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -300,8 +287,6 @@ class _InicioScreenState extends State<InicioScreen> {
                                 ),
                               ),
                             ),
-
-                            // ANIMACIÓN VISUAL DE EXPLOSIÓN
                             if (hayExplosionAqui)
                               Positioned.fill(
                                 child: _EfectoExplosion(
@@ -320,13 +305,10 @@ class _InicioScreenState extends State<InicioScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 10),
           ],
         ),
       ),
-
-      // BOTÓN INFERIOR FIJO
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
@@ -345,10 +327,9 @@ class _InicioScreenState extends State<InicioScreen> {
             child: ElevatedButton.icon(
               onPressed: listo
                   ? () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('🚀 ¡Posiciones listas! Avanzando al juego...'),
-                          duration: Duration(seconds: 2),
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => JuegoScreen(tablero: tablero),
                         ),
                       );
                     }
@@ -398,7 +379,6 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 }
 
-// WIDGET DEDICADO A LA ANIMACIÓN DE LA EXPLOSIÓN
 class _EfectoExplosion extends StatelessWidget {
   final VoidCallback onFinished;
 
@@ -411,7 +391,6 @@ class _EfectoExplosion extends StatelessWidget {
       duration: const Duration(milliseconds: 600),
       onEnd: onFinished,
       builder: (context, scale, child) {
-        // Cálculo de transparencia decreciente
         double opacity = (1.8 - scale) / 1.5;
         if (opacity < 0.0) opacity = 0.0;
         if (opacity > 1.0) opacity = 1.0;

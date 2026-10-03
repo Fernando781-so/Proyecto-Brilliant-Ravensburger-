@@ -536,13 +536,11 @@ void main() {
       bloc.colocarNumero(3, 4, 4);
       bloc.colocarNumero(5, 2, 5);
 
-      // Se intenta repetir el número 5.
       expect(
         bloc.colocarNumero(6, 4, 5),
         isFalse,
       );
 
-      // Todavía falta el número 6.
       expect(
         bloc.puedeAvanzar,
         isFalse,
@@ -611,7 +609,6 @@ void main() {
     test('Zona Azul completada válidamente otorga el puntaje máximo de su bolsa (7 pts)', () {
       List<List<int>> celdas = List.generate(7, (_) => List.generate(7, (_) => 0));
 
-      // Llenar casillas de la región Azul con el mismo número (4)
       Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
       for (var pos in zonaAzul.posiciones) {
         celdas[pos[0]][pos[1]] = 4;
