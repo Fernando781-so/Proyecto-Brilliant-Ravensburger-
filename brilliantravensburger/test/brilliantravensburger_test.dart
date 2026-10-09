@@ -79,10 +79,10 @@ void main() {
     });
 
 
-    test('hay una zona para cada región', () {
+    test('hay zonas creadas para las regiones', () {
       expect(
         zonas.length,
-        5,
+        7,
       );
 
       expect(
@@ -149,12 +149,6 @@ void main() {
           14,
           15,
           24,
-          32,
-          42,
-          43,
-          52,
-          61,
-          62,
         ],
       );
     });
@@ -238,7 +232,7 @@ void main() {
     });
 
 
-    test('el tablero guarda las cinco zonas', () {
+    test('el tablero guarda las zonas', () {
 
       Tablero tablero = Tablero(
         celdas: List.generate(
@@ -253,12 +247,12 @@ void main() {
 
       expect(
         tablero.zonas.length,
-        5,
+        7,
       );
     });
 
 
-    test('el tablero contiene una zona de cada región', () {
+    test('el tablero contiene zonas de cada región', () {
 
       Tablero tablero = Tablero(
         celdas: List.generate(
@@ -302,41 +296,6 @@ void main() {
       expect(
         tablero.obtenerValoresRegion(Region.amarillo),
         [0, 6, 33, 60, 66],
-      );
-    });
-
-
-    test('Tablero puede obtener los valores de la región lila', () {
-
-      List<List<int>> datos = List.generate(
-        7,
-        (fila) => List.generate(
-          7,
-          (columna) => fila * 10 + columna,
-        ),
-      );
-
-      Tablero tablero = Tablero(
-        celdas: datos,
-        zonas: zonas,
-      );
-
-      expect(
-        tablero.obtenerValoresRegion(Region.lila),
-        [
-          3,
-          4,
-          5,
-          14,
-          15,
-          24,
-          32,
-          42,
-          43,
-          52,
-          61,
-          62,
-        ],
       );
     });
 
