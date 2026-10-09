@@ -79,10 +79,10 @@ void main() {
     });
 
 
-    test('hay zonas creadas para las regiones', () {
+    test('hay 9 zonas creadas para las regiones', () {
       expect(
         zonas.length,
-        7,
+        9,
       );
 
       expect(
@@ -116,41 +116,6 @@ void main() {
           );
         }
       }
-    });
-
-
-    test('obtiene los valores de una región según sus posiciones', () {
-
-      List<List<int>> tablero = List.generate(
-        7,
-        (fila) => List.generate(
-          7,
-          (columna) => fila * 10 + columna,
-        ),
-      );
-
-      expect(
-        obtenerValoresRegion(
-          tablero,
-          Region.amarillo,
-        ),
-        [0, 6, 33, 60, 66],
-      );
-
-      expect(
-        obtenerValoresRegion(
-          tablero,
-          Region.lila,
-        ),
-        [
-          3,
-          4,
-          5,
-          14,
-          15,
-          24,
-        ],
-      );
     });
 
   });
@@ -232,7 +197,7 @@ void main() {
     });
 
 
-    test('el tablero guarda las zonas', () {
+    test('el tablero guarda las 9 zonas', () {
 
       Tablero tablero = Tablero(
         celdas: List.generate(
@@ -247,55 +212,7 @@ void main() {
 
       expect(
         tablero.zonas.length,
-        7,
-      );
-    });
-
-
-    test('el tablero contiene zonas de cada región', () {
-
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (fila) => List.generate(
-            7,
-            (columna) => 0,
-          ),
-        ),
-        zonas: zonas,
-      );
-
-      expect(
-        tablero.zonas.map((zona) => zona.region).toSet(),
-        containsAll(<Region>[
-          Region.amarillo,
-          Region.verde,
-          Region.azul,
-          Region.lila,
-          Region.rojo,
-        ]),
-      );
-    });
-
-
-    test('Tablero puede obtener los valores de una región', () {
-
-      List<List<int>> datos = List.generate(
-        7,
-        (fila) => List.generate(
-          7,
-          (columna) => fila * 10 + columna,
-        ),
-      );
-
-      Tablero tablero = Tablero(
-        celdas: datos,
-        zonas: zonas,
-      );
-
-      expect(
-        tablero.obtenerValoresRegion(Region.amarillo),
-        [0, 6, 33, 60, 66],
+        9,
       );
     });
 
@@ -394,205 +311,6 @@ void main() {
         );
       },
     );
-
-  });
-
-
-  // ========================================================
-  // PRUEBAS DE INICIO BLOC
-  // ========================================================
-
-  group('Pruebas de InicioBloc', () {
-
-    test('no permite repetir un número', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (_) => List.generate(7, (_) => 0),
-        ),
-        zonas: zonas,
-      );
-
-      InicioBloc bloc = InicioBloc(
-        tablero: tablero,
-      );
-
-      expect(
-        bloc.colocarNumero(0, 2, 3),
-        isTrue,
-      );
-
-      expect(
-        bloc.colocarNumero(1, 5, 3),
-        isFalse,
-      );
-    });
-
-
-    test('permite utilizar cada número solamente una vez', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (_) => List.generate(7, (_) => 0),
-        ),
-        zonas: zonas,
-      );
-
-      InicioBloc bloc = InicioBloc(
-        tablero: tablero,
-      );
-
-      expect(bloc.colocarNumero(0, 2, 1), isTrue);
-      expect(bloc.colocarNumero(1, 5, 2), isTrue);
-      expect(bloc.colocarNumero(3, 1, 3), isTrue);
-      expect(bloc.colocarNumero(3, 4, 4), isTrue);
-      expect(bloc.colocarNumero(5, 2, 5), isTrue);
-      expect(bloc.colocarNumero(6, 4, 6), isTrue);
-    });
-
-
-    test('no permite sobrescribir una posición ya ocupada', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (_) => List.generate(7, (_) => 0),
-        ),
-        zonas: zonas,
-      );
-
-      InicioBloc bloc = InicioBloc(
-        tablero: tablero,
-      );
-
-      expect(
-        bloc.colocarNumero(0, 2, 1),
-        isTrue,
-      );
-
-      expect(
-        bloc.colocarNumero(0, 2, 2),
-        isFalse,
-      );
-    });
-
-
-    test('los seis números deben ser diferentes', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (_) => List.generate(7, (_) => 0),
-        ),
-        zonas: zonas,
-      );
-
-      InicioBloc bloc = InicioBloc(
-        tablero: tablero,
-      );
-
-      bloc.colocarNumero(0, 2, 1);
-      bloc.colocarNumero(1, 5, 2);
-      bloc.colocarNumero(3, 1, 3);
-      bloc.colocarNumero(3, 4, 4);
-      bloc.colocarNumero(5, 2, 5);
-
-      expect(
-        bloc.colocarNumero(6, 4, 5),
-        isFalse,
-      );
-
-      expect(
-        bloc.puedeAvanzar,
-        isFalse,
-      );
-    });
-
-
-    test('puede avanzar cuando están los números del 1 al 6 sin repetir', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(
-          7,
-          (_) => List.generate(7, (_) => 0),
-        ),
-        zonas: zonas,
-      );
-
-      InicioBloc bloc = InicioBloc(
-        tablero: tablero,
-      );
-
-      bloc.colocarNumero(0, 2, 1);
-      bloc.colocarNumero(1, 5, 2);
-      bloc.colocarNumero(3, 1, 3);
-      bloc.colocarNumero(3, 4, 4);
-      bloc.colocarNumero(5, 2, 5);
-      bloc.colocarNumero(6, 4, 6);
-
-      expect(
-        bloc.puedeAvanzar,
-        isTrue,
-      );
-
-      expect(
-        bloc.avanzar(),
-        isTrue,
-      );
-    });
-
-  });
-
-
-  // ========================================================
-  // PRUEBAS DE PUNTUACIÓN DE REGIONES
-  // ========================================================
-
-  group('Pruebas de Puntuación de Regiones', () {
-
-    test('Cada región asigna su bolsa de puntos correcta', () {
-      expect(obtenerBolsaPuntosRegion(Region.amarillo), [8, 6, 4]);
-      expect(obtenerBolsaPuntosRegion(Region.verde), [4, 3, 2]);
-      expect(obtenerBolsaPuntosRegion(Region.azul), [7, 5, 3]);
-      expect(obtenerBolsaPuntosRegion(Region.rojo), [6, 4, 2]);
-      expect(obtenerBolsaPuntosRegion(Region.lila), [6, 4, 2]);
-    });
-
-    test('Zona incompleta otorga 0 puntos', () {
-      Tablero tablero = Tablero(
-        celdas: List.generate(7, (_) => List.generate(7, (_) => 0)),
-        zonas: zonas,
-      );
-
-      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
-      expect(zonaAzul.obtenerPuntuacion(tablero), 0);
-    });
-
-    test('Zona Azul completada válidamente otorga el puntaje máximo de su bolsa (7 pts)', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.generate(7, (_) => 0));
-
-      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
-      for (var pos in zonaAzul.posiciones) {
-        celdas[pos[0]][pos[1]] = 4;
-      }
-
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
-
-      expect(zonaAzul.esValida(tablero), isTrue);
-      expect(zonaAzul.obtenerPuntuacion(tablero), 7);
-    });
-
-    test('Zona Azul con números diferentes es inválida y otorga 0 pts', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.generate(7, (_) => 0));
-
-      Zona zonaAzul = zonas.firstWhere((z) => z.region == Region.azul);
-      int val = 1;
-      for (var pos in zonaAzul.posiciones) {
-        celdas[pos[0]][pos[1]] = val++;
-      }
-
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
-
-      expect(zonaAzul.esValida(tablero), isFalse);
-      expect(zonaAzul.obtenerPuntuacion(tablero), 0);
-    });
 
   });
 

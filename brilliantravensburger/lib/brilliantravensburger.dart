@@ -129,15 +129,12 @@ class Tablero {
   List<int> obtenerValoresRegion(Region region) {
     List<int> valores = [];
 
-    Zona zona = zonas.firstWhere(
-      (zona) => zona.region == region,
-    );
-
-    for (List<int> posicion in zona.posiciones) {
-      int fila = posicion[0];
-      int columna = posicion[1];
-
-      valores.add(celdas[fila][columna]);
+    for (Zona zona in zonas) {
+      if (zona.region == region) {
+        for (List<int> posicion in zona.posiciones) {
+          valores.add(celdas[posicion[0]][posicion[1]]);
+        }
+      }
     }
 
     return valores;
@@ -166,6 +163,7 @@ class Tablero {
 
 List<Zona> crearZonas() {
   return [
+    // 🟡 AMARILLO - Una sola zona general
     Zona(
       region: Region.amarillo,
       posiciones: [
@@ -176,24 +174,34 @@ List<Zona> crearZonas() {
         [6, 6],
       ],
     ),
+
+    // 🟢 VERDE - Bloque 1 (Izquierda)
     Zona(
       region: Region.verde,
       posiciones: [
         [0, 1],
         [1, 0],
         [1, 1],
-        [1, 6],
         [2, 0],
-        [2, 5],
-        [2, 6],
         [3, 0],
-        [3, 4],
-        [3, 5],
-        [3, 6],
         [4, 0],
       ],
     ),
-    // Azul - Bloque 1
+
+    // 🟢 VERDE - Bloque 2 (Derecha)
+    Zona(
+      region: Region.verde,
+      posiciones: [
+        [1, 6],
+        [2, 5],
+        [2, 6],
+        [3, 4],
+        [3, 5],
+        [3, 6],
+      ],
+    ),
+
+    // 🔵 AZUL - Bloque 1 (Arriba)
     Zona(
       region: Region.azul,
       posiciones: [
@@ -203,7 +211,8 @@ List<Zona> crearZonas() {
         [2, 3],
       ],
     ),
-    // Azul - Bloque 2
+
+    // 🔵 AZUL - Bloque 2 (Abajo Derecha)
     Zona(
       region: Region.azul,
       posiciones: [
@@ -213,7 +222,8 @@ List<Zona> crearZonas() {
         [6, 5],
       ],
     ),
-    // Lila - Bloque 1
+
+    // 🟣 LILA - Bloque 1 (Arriba Derecha)
     Zona(
       region: Region.lila,
       posiciones: [
@@ -225,7 +235,8 @@ List<Zona> crearZonas() {
         [2, 4],
       ],
     ),
-    // Lila - Bloque 2
+
+    // 🟣 LILA - Bloque 2 (Abajo Izquierda)
     Zona(
       region: Region.lila,
       posiciones: [
@@ -237,6 +248,8 @@ List<Zona> crearZonas() {
         [6, 2],
       ],
     ),
+
+    // 🔴 ROJO - Bloque 1 (Centro / Izquierda)
     Zona(
       region: Region.rojo,
       posiciones: [
@@ -244,10 +257,17 @@ List<Zona> crearZonas() {
         [2, 2],
         [3, 1],
         [4, 1],
-        [4, 4],
-        [4, 5],
         [5, 0],
         [5, 1],
+      ],
+    ),
+
+    // 🔴 ROJO - Bloque 2 (Abajo Derecha)
+    Zona(
+      region: Region.rojo,
+      posiciones: [
+        [4, 4],
+        [4, 5],
         [5, 3],
         [5, 4],
         [6, 3],
@@ -465,10 +485,11 @@ bool esColocacionPermitidaEnRegion(
       return todosMismoNumero(futurosValores);
 
     case Region.lila:
-      // Permite hasta 2 números distintos mientras se llena la zona
+      // Permite hasta 2 números distintos en el bloque
       return futurosValores.toSet().length <= 2;
 
     case Region.rojo:
+      // No se pueden repetir números dentro del mismo bloque
       return futurosValores.toSet().length == futurosValores.length;
   }
 }
