@@ -219,14 +219,55 @@ class _InicioScreenState extends State<InicioScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-              child: Text(
-                'Toca las casillas marcadas para colocar o mover los números del 1 al 6.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.black87),
+            const SizedBox(height: 8),
+            // BANNER SUPERIOR (Estructura alineada con JuegoScreen)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: const Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.touch_app_outlined, color: Colors.blue, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Configuración de inicio',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Ubica los números del 1 al 6 en las casillas remarcadas para comenzar.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                listo
+                    ? '¡Todos los números colocados! Ya puedes iniciar.'
+                    : 'Toca las casillas marcadas con borde grueso (+)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: listo ? Colors.green.shade800 : Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // TABLERO CENTRADO (EXPANDED CON ASPECT RATIO 1.0 IGUAL A JUEGO_SCREEN)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -267,7 +308,7 @@ class _InicioScreenState extends State<InicioScreen> {
                                 boxShadow: esInicial
                                     ? [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.12),
+                                          color: Colors.black.withValues(alpha: 0.12),
                                           blurRadius: 3,
                                           offset: const Offset(1, 2),
                                         )
@@ -305,59 +346,48 @@ class _InicioScreenState extends State<InicioScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: listo
-                  ? () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => JuegoScreen(tablero: tablero),
-                        ),
-                      );
-                    }
-                  : null,
-              icon: Icon(
-                listo ? Icons.check_circle_outline : Icons.lock_outline,
-                size: 26,
-              ),
-              label: Text(
-                listo ? '¡LISTO! AVANZAR' : 'COLOCA LOS 6 NÚMEROS',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade600,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade600,
-                elevation: listo ? 6 : 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            // BOTÓN INFERIOR (UBICADO DENTRO DEL COLUMN AL IGUAL QUE JUEGO_SCREEN)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: listo
+                      ? () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => JuegoScreen(tablero: tablero),
+                            ),
+                          );
+                        }
+                      : null,
+                  icon: Icon(
+                    listo ? Icons.check_circle_outline : Icons.lock_outline,
+                    size: 24,
+                  ),
+                  label: Text(
+                    listo ? '¡LISTO! AVANZAR' : 'COLOCA LOS 6 NÚMEROS',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.1,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    disabledForegroundColor: Colors.grey.shade600,
+                    elevation: listo ? 4 : 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
