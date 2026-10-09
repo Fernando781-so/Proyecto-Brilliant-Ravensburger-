@@ -1,4 +1,3 @@
-
 // ==========================================================
 // TIPOS / REGIONES
 // ==========================================================
@@ -45,6 +44,15 @@ class Zona {
     List<int>? bolsaPuntos,
   }) : bolsaPuntos = bolsaPuntos ?? obtenerBolsaPuntosRegion(region);
 
+  // Obtiene únicamente los valores pertenecientes a esta instancia de Zona
+  List<int> obtenerValores(Tablero tablero) {
+    List<int> valores = [];
+    for (List<int> pos in posiciones) {
+      valores.add(tablero.celdas[pos[0]][pos[1]]);
+    }
+    return valores;
+  }
+
   bool estaCompletada(Tablero tablero) {
     for (List<int> pos in posiciones) {
       int fila = pos[0];
@@ -60,7 +68,7 @@ class Zona {
     if (!estaCompletada(tablero)) {
       return false;
     }
-    List<int> valores = tablero.obtenerValoresRegion(region);
+    List<int> valores = obtenerValores(tablero);
     return esReglaCumplida(region, valores);
   }
 
@@ -146,14 +154,14 @@ class Tablero {
   Map<Region, int> obtenerResumenPuntos() {
     Map<Region, int> resumen = {};
     for (Zona zona in zonas) {
-      resumen[zona.region] = zona.obtenerPuntuacion(this);
+      resumen[zona.region] = (resumen[zona.region] ?? 0) + zona.obtenerPuntuacion(this);
     }
     return resumen;
   }
 }
 
 // ==========================================================
-// CREAR ZONAS
+// CREAR ZONAS (Bloques de colores independientes)
 // ==========================================================
 
 List<Zona> crearZonas() {
@@ -185,6 +193,7 @@ List<Zona> crearZonas() {
         [4, 0],
       ],
     ),
+    // Azul - Bloque 1
     Zona(
       region: Region.azul,
       posiciones: [
@@ -192,12 +201,19 @@ List<Zona> crearZonas() {
         [1, 2],
         [1, 3],
         [2, 3],
+      ],
+    ),
+    // Azul - Bloque 2
+    Zona(
+      region: Region.azul,
+      posiciones: [
         [4, 6],
         [5, 5],
         [5, 6],
         [6, 5],
       ],
     ),
+    // Lila - Bloque 1
     Zona(
       region: Region.lila,
       posiciones: [
@@ -207,6 +223,12 @@ List<Zona> crearZonas() {
         [1, 4],
         [1, 5],
         [2, 4],
+      ],
+    ),
+    // Lila - Bloque 2
+    Zona(
+      region: Region.lila,
+      posiciones: [
         [3, 2],
         [4, 2],
         [4, 3],
@@ -443,7 +465,8 @@ bool esColocacionPermitidaEnRegion(
       return todosMismoNumero(futurosValores);
 
     case Region.lila:
-      return exactamenteDosNumeros(futurosValores);
+      // Permite hasta 2 números distintos mientras se llena la zona
+      return futurosValores.toSet().length <= 2;
 
     case Region.rojo:
       return futurosValores.toSet().length == futurosValores.length;
