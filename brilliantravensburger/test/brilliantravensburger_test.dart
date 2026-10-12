@@ -229,6 +229,103 @@ void main() {
         expect(inicio.colocarNumero(0, 1, 3), isFalse);
       },
     );
+
+    test('la región azul rechaza un número distinto aunque la zona esté casi completa', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+      celdas[0][0] = 2;
+      celdas[0][1] = 2;
+      Tablero tablero = Tablero(
+        celdas: celdas,
+        zonas: [
+          Zona(
+            region: Region.azul,
+            posiciones: [
+              [0, 0],
+              [0, 1],
+            ],
+          ),
+        ],
+      );
+
+      expect(esColocacionPermitidaEnRegion(tablero, 0, 1, 3), isFalse);
+    });
+
+    test('la región lila rechaza un tercer número distinto en la misma zona', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+      celdas[0][0] = 2;
+      celdas[0][1] = 3;
+      Tablero tablero = Tablero(
+        celdas: celdas,
+        zonas: [
+          Zona(
+            region: Region.lila,
+            posiciones: [
+              [0, 0],
+              [0, 1],
+              [0, 2],
+            ],
+          ),
+        ],
+      );
+
+      expect(esColocacionPermitidaEnRegion(tablero, 0, 2, 5), isFalse);
+    });
+
+    test('la región rojo rechaza duplicar un número dentro del mismo bloque', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+      celdas[0][0] = 2;
+      celdas[0][1] = 3;
+      Tablero tablero = Tablero(
+        celdas: celdas,
+        zonas: [
+          Zona(
+            region: Region.rojo,
+            posiciones: [
+              [0, 0],
+              [0, 1],
+              [0, 2],
+            ],
+          ),
+        ],
+      );
+
+      expect(esColocacionPermitidaEnRegion(tablero, 0, 2, 2), isFalse);
+    });
+
+    test('obtenerPosicionesValidas devuelve vacío cuando no hay celdas vacías adyacentes', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 1));
+      celdas[3][3] = 2;
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(obtenerPosicionesValidas(tablero, 2, 5), isEmpty);
+    });
+
+    test('hayMovimientosPosibles devuelve true si existe al menos una colocación válida', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+      celdas[3][3] = 2;
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(hayMovimientosPosibles(tablero, 2, 5), isTrue);
+    });
+
+    test('hayMovimientosPosibles devuelve false si el tablero no tiene movimientos válidos', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 1));
+      celdas[3][3] = 2;
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(hayMovimientosPosibles(tablero, 2, 5), isFalse);
+    });
+
+    test('el bloque de inicio rechaza números fuera de rango y posiciones no válidas', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+      InicioBloc inicio = InicioBloc(tablero: tablero);
+
+      expect(inicio.colocarNumero(0, 2, 0), isFalse);
+      expect(inicio.colocarNumero(0, 2, 7), isFalse);
+      expect(inicio.colocarNumero(1, 1, 3), isFalse);
+      expect(inicio.colocarNumero(0, 2, 1), isTrue);
+    });
   });
 
   // ========================================================
