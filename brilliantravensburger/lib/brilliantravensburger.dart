@@ -126,6 +126,10 @@ class Tablero {
     required this.zonas,
   });
 
+  bool get estaCompleto => celdas.every(
+        (fila) => fila.every((celda) => celda != 0),
+      );
+
   List<int> obtenerValoresRegion(Region region) {
     List<int> valores = [];
 

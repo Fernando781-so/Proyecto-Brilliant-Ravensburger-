@@ -1,4 +1,6 @@
 import 'package:brilliantravensburger/inicio_screen.dart';
+import 'package:brilliantravensburger/brilliantravensburger.dart';
+import 'package:brilliantravensburger/juego_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -179,4 +181,22 @@ void main() {
       expect(find.text('Brilliant - Turno 3'), findsOneWidget);
     },
   );
+
+  testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final tablero = Tablero(
+      celdas: List.generate(7, (_) => List.filled(7, 1)),
+      zonas: zonas,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: JuegoScreen(tablero: tablero)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¡Partida finalizada!'), findsOneWidget);
+    expect(find.text('Puntaje total: 30 pts'), findsOneWidget);
+    expect(find.text('Partida finalizada'), findsOneWidget);
+    expect(find.text('Sin movimientos'), findsNothing);
+  });
 }

@@ -80,6 +80,17 @@ void main() {
       expect(tablero.zonas.length, 9);
     });
 
+    test('detecta cuándo todas las casillas del tablero están llenas', () {
+      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 1));
+      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+
+      expect(tablero.estaCompleto, isTrue);
+
+      celdas[6][6] = 0;
+
+      expect(tablero.estaCompleto, isFalse);
+    });
+
     test('obtenerValoresRegion recopila todas las celdas de las zonas de un color', () {
       List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
       celdas[0][0] = 5; // Amarillo

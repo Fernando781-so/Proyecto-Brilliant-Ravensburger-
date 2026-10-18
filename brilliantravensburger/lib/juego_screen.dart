@@ -16,6 +16,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
   int dado2 = 1;
   int anclaSeleccionada = 1;
   int turno = 1;
+  bool partidaFinalizada = false;
 
   final Random _random = Random();
 
@@ -30,11 +31,20 @@ class _JuegoScreenState extends State<JuegoScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _lanzarDadosAutomatico();
+      if (widget.tablero.estaCompleto) {
+        _finalizarPartida();
+      } else {
+        _lanzarDadosAutomatico();
+      }
     });
   }
 
   void _lanzarDadosAutomatico() {
+    if (partidaFinalizada || widget.tablero.estaCompleto) {
+      _finalizarPartida();
+      return;
+    }
+
     int d1 = _random.nextInt(6) + 1;
     int d2 = _random.nextInt(6) + 1;
 
@@ -124,14 +134,96 @@ class _JuegoScreenState extends State<JuegoScreen> {
   }
 
   void _siguienteTurno() {
+    if (partidaFinalizada) return;
+
     setState(() {
       turno++;
     });
     _lanzarDadosAutomatico();
   }
 
+  void _confirmarJugada() {
+    Navigator.of(context).pop();
+
+    if (widget.tablero.estaCompleto) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _finalizarPartida();
+      });
+      return;
+    }
+
+    _siguienteTurno();
+  }
+
+  void _finalizarPartida() {
+    if (partidaFinalizada || !widget.tablero.estaCompleto) return;
+
+    setState(() {
+      partidaFinalizada = true;
+    });
+
+    final puntajeTotal = widget.tablero.calcularPuntajeTotal();
+    final resumenPuntos = widget.tablero.obtenerResumenPuntos();
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+            SizedBox(width: 8),
+            Text('¡Partida finalizada!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Puntaje total: $puntajeTotal pts',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            for (final region in Region.values)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  '${_nombreRegion(region)}: ${resumenPuntos[region] ?? 0} pts',
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Ver tablero'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _nombreRegion(Region region) {
+    switch (region) {
+      case Region.amarillo:
+        return 'Amarillo';
+      case Region.verde:
+        return 'Verde';
+      case Region.azul:
+        return 'Azul';
+      case Region.lila:
+        return 'Lila';
+      case Region.rojo:
+        return 'Rojo';
+    }
+  }
+
   // Al seleccionar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
+    if (partidaFinalizada) return;
+
     bool esValida = posicionesValidas.any((p) => p[0] == fila && p[1] == columna);
 
     if (!esValida) return;
@@ -180,8 +272,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              Navigator.of(context).pop();
-              _siguienteTurno();
+              _confirmarJugada();
             },
             icon: const Icon(Icons.arrow_forward),
             label: const Text('Avanzar Turno'),
@@ -206,7 +297,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Brilliant - Turno $turno'),
+        title: Text(
+          partidaFinalizada ? 'Partida finalizada' : 'Brilliant - Turno $turno',
+        ),
         centerTitle: true,
         actions: [
           Padding(
@@ -381,7 +474,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 width: double.infinity,
                 height: 50,
                 child: OutlinedButton.icon(
-                  onPressed: _confirmarSaltarTurno,
+                  onPressed: partidaFinalizada ? null : _confirmarSaltarTurno,
                   icon: const Icon(Icons.skip_next),
                   label: const Text(
                     'SALTAR TURNO',
