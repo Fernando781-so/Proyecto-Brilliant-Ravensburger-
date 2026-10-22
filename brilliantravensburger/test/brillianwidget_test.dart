@@ -12,7 +12,13 @@ Future<void> _colocarNumero(WidgetTester tester, int numero) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _iniciarPartida(WidgetTester tester) async {
+Future<void> _elegirTablero(WidgetTester tester, [int numero = 1]) async {
+  await tester.tap(find.text('Tablero $numero'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _iniciarPartida(WidgetTester tester, [int tablero = 1]) async {
+  await _elegirTablero(tester, tablero);
   for (var numero = 1; numero <= 6; numero++) {
     await _colocarNumero(tester, numero);
   }
@@ -38,9 +44,38 @@ void _configurarSuperficie(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('permite elegir entre cuatro tableros antes de colocar números', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+
+    expect(find.text('Elige un tablero'), findsOneWidget);
+    for (var numero = 1; numero <= 4; numero++) {
+      expect(find.text('Tablero $numero'), findsOneWidget);
+    }
+    expect(find.text('Configuración de inicio'), findsNothing);
+
+    await _elegirTablero(tester, 3);
+
+    expect(find.text('Configuración de inicio'), findsOneWidget);
+    expect(find.text('Tablero 3'), findsOneWidget);
+    expect(find.text('Brilliant - Posiciones Iniciales'), findsOneWidget);
+    expect(find.text('+'), findsNWidgets(6));
+    expect(find.text('COLOCA LOS 6 NÚMEROS'), findsOneWidget);
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is ElevatedButton && widget.onPressed == null,
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('muestra el tablero inicial y bloquea el avance', (tester) async {
     _configurarSuperficie(tester);
     await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester);
 
     expect(find.text('Brilliant - Posiciones Iniciales'), findsOneWidget);
     expect(find.text('Configuración de inicio'), findsOneWidget);
@@ -60,6 +95,7 @@ void main() {
   ) async {
     _configurarSuperficie(tester);
     await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester);
 
     await tester.tap(find.text('+').first);
     await tester.pumpAndSettle();
@@ -82,6 +118,7 @@ void main() {
   ) async {
     _configurarSuperficie(tester);
     await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester);
 
     for (var numero = 1; numero <= 6; numero++) {
       await _colocarNumero(tester, numero);
@@ -107,6 +144,7 @@ void main() {
   ) async {
     _configurarSuperficie(tester);
     await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester);
 
     await _colocarNumero(tester, 1);
     await tester.tap(find.text('+').first);
@@ -125,6 +163,7 @@ void main() {
   ) async {
     _configurarSuperficie(tester);
     await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester);
 
     await _colocarNumero(tester, 1);
     await tester.tap(find.text('1'));
@@ -143,9 +182,9 @@ void main() {
       _configurarSuperficie(tester);
       await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
 
-      await _iniciarPartida(tester);
+      await _iniciarPartida(tester, 3);
 
-      expect(find.text('Brilliant - Turno 1'), findsOneWidget);
+      expect(find.text('Brilliant - Tablero 3 - Turno 1'), findsOneWidget);
       expect(
         find.text('🎲 Dados de la mesa (Lanzamiento Automático):'),
         findsOneWidget,
@@ -159,26 +198,26 @@ void main() {
       await tester.tap(find.text('Deshacer'));
       await tester.pumpAndSettle();
       expect(find.text('¡Número Colocado!'), findsNothing);
-      expect(find.text('Brilliant - Turno 1'), findsOneWidget);
+      expect(find.text('Brilliant - Tablero 3 - Turno 1'), findsOneWidget);
 
       await tester.tap(_primeraCasillaValida());
       await tester.pumpAndSettle();
       await tester.tap(find.text('Avanzar Turno'));
       await tester.pumpAndSettle();
-      expect(find.text('Brilliant - Turno 2'), findsOneWidget);
+      expect(find.text('Brilliant - Tablero 3 - Turno 2'), findsOneWidget);
 
       await tester.tap(find.text('SALTAR TURNO'));
       await tester.pumpAndSettle();
       expect(find.text('¿Saltar turno?'), findsOneWidget);
       await tester.tap(find.text('Cancelar'));
       await tester.pumpAndSettle();
-      expect(find.text('Brilliant - Turno 2'), findsOneWidget);
+      expect(find.text('Brilliant - Tablero 3 - Turno 2'), findsOneWidget);
 
       await tester.tap(find.text('SALTAR TURNO'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Sí, saltar turno'));
       await tester.pumpAndSettle();
-      expect(find.text('Brilliant - Turno 3'), findsOneWidget);
+      expect(find.text('Brilliant - Tablero 3 - Turno 3'), findsOneWidget);
     },
   );
 

@@ -4,8 +4,13 @@ import 'brilliantravensburger.dart';
 
 class JuegoScreen extends StatefulWidget {
   final Tablero tablero;
+  final int? tableroSeleccionado;
 
-  const JuegoScreen({super.key, required this.tablero});
+  const JuegoScreen({
+    super.key,
+    required this.tablero,
+    this.tableroSeleccionado,
+  });
 
   @override
   State<JuegoScreen> createState() => _JuegoScreenState();
@@ -298,7 +303,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          partidaFinalizada ? 'Partida finalizada' : 'Brilliant - Turno $turno',
+          partidaFinalizada
+              ? 'Partida finalizada'
+              : widget.tableroSeleccionado == null
+                  ? 'Brilliant - Turno $turno'
+                  : 'Brilliant - Tablero ${widget.tableroSeleccionado} - Turno $turno',
         ),
         centerTitle: true,
         actions: [
