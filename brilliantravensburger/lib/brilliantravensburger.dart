@@ -113,6 +113,25 @@ bool esReglaCumplida(Region region, List<int> valores) {
   }
 }
 
+bool esReglaBlancaCumplida(List<int> valores) {
+  return valores.isNotEmpty &&
+      !valores.contains(0) &&
+      todosMismoNumero(valores);
+}
+
+bool esReglaAnaranjadoSuperiorCumplida(List<int> valores) {
+  return _todosEnRango(valores, 4, 6);
+}
+
+bool esReglaAnaranjadoInferiorCumplida(List<int> valores) {
+  return _todosEnRango(valores, 1, 3);
+}
+
+bool _todosEnRango(List<int> valores, int minimo, int maximo) {
+  return valores.isNotEmpty &&
+      valores.every((valor) => valor >= minimo && valor <= maximo);
+}
+
 // ==========================================================
 // TABLERO
 // ==========================================================

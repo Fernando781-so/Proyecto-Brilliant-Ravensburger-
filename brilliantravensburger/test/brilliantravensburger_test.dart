@@ -20,6 +20,27 @@ void main() {
       expect(todosMismoNumero([]), isFalse);
     });
 
+    test('Blanco requiere que todos los números sean iguales', () {
+      expect(esReglaBlancaCumplida([4, 4, 4]), isTrue);
+      expect(esReglaBlancaCumplida([4, 5]), isFalse);
+      expect(esReglaBlancaCumplida([0, 0]), isFalse);
+      expect(esReglaBlancaCumplida([]), isFalse);
+    });
+
+    test('Anaranjado superior acepta valores del 4 al 6, incluidos', () {
+      expect(esReglaAnaranjadoSuperiorCumplida([4, 6, 5, 4]), isTrue);
+      expect(esReglaAnaranjadoSuperiorCumplida([3, 4]), isFalse);
+      expect(esReglaAnaranjadoSuperiorCumplida([6, 7]), isFalse);
+      expect(esReglaAnaranjadoSuperiorCumplida([]), isFalse);
+    });
+
+    test('Anaranjado inferior acepta valores del 1 al 3, incluidos', () {
+      expect(esReglaAnaranjadoInferiorCumplida([1, 3, 2, 1]), isTrue);
+      expect(esReglaAnaranjadoInferiorCumplida([0, 2]), isFalse);
+      expect(esReglaAnaranjadoInferiorCumplida([3, 4]), isFalse);
+      expect(esReglaAnaranjadoInferiorCumplida([]), isFalse);
+    });
+
     test('determinarRegion clasifica listas según su contenido', () {
       expect(determinarRegion([7]), Region.amarillo);
       expect(determinarRegion([4, 4, 4]), Region.azul);
@@ -61,15 +82,18 @@ void main() {
       expect(zonas.every((zona) => zona.posiciones.isNotEmpty), isTrue);
     });
 
-    test('cada zona contiene coordenadas dentro del rango del tablero (0 a 6)', () {
-      for (Zona zona in zonas) {
-        for (List<int> posicion in zona.posiciones) {
-          expect(posicion, hasLength(2));
-          expect(posicion[0], inInclusiveRange(0, 6));
-          expect(posicion[1], inInclusiveRange(0, 6));
+    test(
+      'cada zona contiene coordenadas dentro del rango del tablero (0 a 6)',
+      () {
+        for (Zona zona in zonas) {
+          for (List<int> posicion in zona.posiciones) {
+            expect(posicion, hasLength(2));
+            expect(posicion[0], inInclusiveRange(0, 6));
+            expect(posicion[1], inInclusiveRange(0, 6));
+          }
         }
-      }
-    });
+      },
+    );
 
     test('el tablero inicializa una matriz 7x7 y guarda sus zonas', () {
       List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
@@ -91,16 +115,21 @@ void main() {
       expect(tablero.estaCompleto, isFalse);
     });
 
-    test('obtenerValoresRegion recopila todas las celdas de las zonas de un color', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
-      celdas[0][0] = 5; // Amarillo
-      celdas[0][6] = 2; // Amarillo
+    test(
+      'obtenerValoresRegion recopila todas las celdas de las zonas de un color',
+      () {
+        List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+        celdas[0][0] = 5; // Amarillo
+        celdas[0][6] = 2; // Amarillo
 
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
-      List<int> valoresAmarillos = tablero.obtenerValoresRegion(Region.amarillo);
+        Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+        List<int> valoresAmarillos = tablero.obtenerValoresRegion(
+          Region.amarillo,
+        );
 
-      expect(valoresAmarillos, containsAll([5, 2]));
-    });
+        expect(valoresAmarillos, containsAll([5, 2]));
+      },
+    );
   });
 
   // ========================================================
@@ -156,15 +185,18 @@ void main() {
   // 4. LÓGICA DE INICIO (InicioBloc)
   // ========================================================
   group('Lógica de Inicio (InicioBloc)', () {
-    test('permite colocar números válidos (1-6) en casillas iniciales sin repetir', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
-      InicioBloc inicio = InicioBloc(tablero: tablero);
+    test(
+      'permite colocar números válidos (1-6) en casillas iniciales sin repetir',
+      () {
+        List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+        Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+        InicioBloc inicio = InicioBloc(tablero: tablero);
 
-      expect(inicio.colocarNumero(0, 2, 1), isTrue);
-      expect(tablero.celdas[0][2], 1);
-      expect(inicio.colocarNumero(1, 5, 1), isFalse); // Duplicado
-    });
+        expect(inicio.colocarNumero(0, 2, 1), isTrue);
+        expect(tablero.celdas[0][2], 1);
+        expect(inicio.colocarNumero(1, 5, 1), isFalse); // Duplicado
+      },
+    );
 
     test('rechaza posiciones no autorizadas o valores fuera del rango 1-6', () {
       List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
@@ -207,27 +239,41 @@ void main() {
       List<List<int>> validas = obtenerPosicionesValidas(tablero, 2, 5);
 
       // Debe ofrecer [2,3], [4,3], [3,2], [3,4] si cumplen las reglas
-      expect(validas, containsAll([[3, 4]]));
-      expect(validas.any((pos) => pos[0] == 2 && pos[1] == 2), isFalse); // Diagonal no permitida
+      expect(
+        validas,
+        containsAll([
+          [3, 4],
+        ]),
+      );
+      expect(
+        validas.any((pos) => pos[0] == 2 && pos[1] == 2),
+        isFalse,
+      ); // Diagonal no permitida
     });
 
-    test('hayMovimientosPosibles detecta disponibilidad en ambos sentidos de los dados', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
-      celdas[3][3] = 2;
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+    test(
+      'hayMovimientosPosibles detecta disponibilidad en ambos sentidos de los dados',
+      () {
+        List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
+        celdas[3][3] = 2;
+        Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
 
-      expect(hayMovimientosPosibles(tablero, 2, 5), isTrue);
-      expect(hayMovimientosPosibles(tablero, 5, 2), isTrue);
-    });
+        expect(hayMovimientosPosibles(tablero, 2, 5), isTrue);
+        expect(hayMovimientosPosibles(tablero, 5, 2), isTrue);
+      },
+    );
 
-    test('devuelve lista vacía cuando el tablero no ofrece casilla adyacente vacía', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 1));
-      celdas[3][3] = 2;
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+    test(
+      'devuelve lista vacía cuando el tablero no ofrece casilla adyacente vacía',
+      () {
+        List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 1));
+        celdas[3][3] = 2;
+        Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
 
-      expect(obtenerPosicionesValidas(tablero, 2, 5), isEmpty);
-      expect(hayMovimientosPosibles(tablero, 2, 5), isFalse);
-    });
+        expect(obtenerPosicionesValidas(tablero, 2, 5), isEmpty);
+        expect(hayMovimientosPosibles(tablero, 2, 5), isFalse);
+      },
+    );
   });
 
   // ========================================================
@@ -244,8 +290,20 @@ void main() {
       Tablero tablero = Tablero(
         celdas: celdas,
         zonas: [
-          Zona(region: Region.azul, posiciones: [[0, 0], [0, 1]]),
-          Zona(region: Region.rojo, posiciones: [[1, 0], [1, 1]]),
+          Zona(
+            region: Region.azul,
+            posiciones: [
+              [0, 0],
+              [0, 1],
+            ],
+          ),
+          Zona(
+            region: Region.rojo,
+            posiciones: [
+              [1, 0],
+              [1, 1],
+            ],
+          ),
         ],
       );
 
@@ -261,7 +319,13 @@ void main() {
       Tablero tablero = Tablero(
         celdas: celdas,
         zonas: [
-          Zona(region: Region.azul, posiciones: [[0, 0], [0, 1]]),
+          Zona(
+            region: Region.azul,
+            posiciones: [
+              [0, 0],
+              [0, 1],
+            ],
+          ),
         ],
       );
 
