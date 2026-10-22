@@ -13,6 +13,7 @@ class _InicioScreenState extends State<InicioScreen> {
   late Tablero tablero;
   late InicioBloc bloc;
 
+  int? _tableroSeleccionado;
   List<int>? _posicionExplosion;
 
   @override
@@ -48,6 +49,18 @@ class _InicioScreenState extends State<InicioScreen> {
     }
 
     _mostrarMenuSeleccionNumero(fila, columna);
+  }
+
+  void _seleccionarTablero(int numero) {
+    setState(() {
+      if (_tableroSeleccionado != null && _tableroSeleccionado != numero) {
+        for (final fila in tablero.celdas) {
+          fila.fillRange(0, fila.length, 0);
+        }
+        _posicionExplosion = null;
+      }
+      _tableroSeleccionado = numero;
+    });
   }
 
   void _mostrarMenuSeleccionNumero(int fila, int columna) {
@@ -212,14 +225,20 @@ class _InicioScreenState extends State<InicioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Brilliant - Posiciones Iniciales'),
+        title: Text(
+          _tableroSeleccionado == null
+              ? 'Brilliant - Elige tablero'
+              : 'Brilliant - Posiciones Iniciales',
+        ),
         centerTitle: true,
         elevation: 1,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
+      child: _tableroSeleccionado == null
+          ? _buildSelectorTablero()
+          : Column(
+        children: [
+          const SizedBox(height: 8),
             // BANNER SUPERIOR (Estructura alineada con JuegoScreen)
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -252,6 +271,28 @@ class _InicioScreenState extends State<InicioScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Tablero $_tableroSeleccionado',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _tableroSeleccionado = null;
+                      for (final fila in tablero.celdas) {
+                        fila.fillRange(0, fila.length, 0);
+                      }
+                      _posicionExplosion = null;
+                    });
+                  },
+                  icon: const Icon(Icons.swap_horiz, size: 18),
+                  label: const Text('Cambiar tablero'),
+                ),
+              ],
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
@@ -357,7 +398,10 @@ class _InicioScreenState extends State<InicioScreen> {
                       ? () {
                           Navigator.of(context).pushReplacement(
                             MaterialPageRoute(
-                              builder: (context) => JuegoScreen(tablero: tablero),
+                              builder: (context) => JuegoScreen(
+                                tablero: tablero,
+                                tableroSeleccionado: _tableroSeleccionado,
+                              ),
                             ),
                           );
                         }
@@ -390,6 +434,74 @@ class _InicioScreenState extends State<InicioScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSelectorTablero() {
+    return Column(
+      children: [
+        const SizedBox(height: 24),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              Icon(Icons.dashboard_outlined, size: 48, color: Colors.blue),
+              SizedBox(height: 12),
+              Text(
+                'Elige un tablero',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Selecciona uno de los cuatro tableros antes de colocar los números iniciales.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.25,
+            ),
+            itemCount: 4,
+            itemBuilder: (context, index) {
+              final numero = index + 1;
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: ValueKey('seleccionar-tablero-$numero'),
+                  onTap: () => _seleccionarTablero(numero),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.grid_on,
+                        size: 36,
+                        color: Colors.blue.shade700,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tablero $numero',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
