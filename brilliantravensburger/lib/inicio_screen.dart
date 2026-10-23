@@ -19,11 +19,11 @@ class _InicioScreenState extends State<InicioScreen> {
   @override
   void initState() {
     super.initState();
-    tablero = Tablero(
-      celdas: List.generate(7, (_) => List.generate(7, (_) => 0)),
-      zonas: zonas,
+    tablero = crearTablero(1);
+    bloc = InicioBloc(
+      tablero: tablero,
+      posicionesIniciales: obtenerPosicionesInicialesTablero(1),
     );
-    bloc = InicioBloc(tablero: tablero);
   }
 
   Region _obtenerRegionCasilla(int fila, int columna) {
@@ -40,7 +40,9 @@ class _InicioScreenState extends State<InicioScreen> {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Toca una casilla con borde grueso para colocar un número.'),
+          content: Text(
+            'Toca una casilla con borde grueso para colocar un número.',
+          ),
           duration: Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
@@ -53,12 +55,12 @@ class _InicioScreenState extends State<InicioScreen> {
 
   void _seleccionarTablero(int numero) {
     setState(() {
-      if (_tableroSeleccionado != null && _tableroSeleccionado != numero) {
-        for (final fila in tablero.celdas) {
-          fila.fillRange(0, fila.length, 0);
-        }
-        _posicionExplosion = null;
-      }
+      tablero = crearTablero(numero);
+      bloc = InicioBloc(
+        tablero: tablero,
+        posicionesIniciales: obtenerPosicionesInicialesTablero(numero),
+      );
+      _posicionExplosion = null;
       _tableroSeleccionado = numero;
     });
   }
@@ -70,7 +72,9 @@ class _InicioScreenState extends State<InicioScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             valorActual == 0
                 ? 'Selecciona o mueve un número'
@@ -94,7 +98,8 @@ class _InicioScreenState extends State<InicioScreen> {
                 children: List.generate(6, (i) {
                   int num = i + 1;
                   bool esElMismo = valorActual == num;
-                  bool estaUsadoEnOtraParte = bloc.numeroYaUtilizado(num) && !esElMismo;
+                  bool estaUsadoEnOtraParte =
+                      bloc.numeroYaUtilizado(num) && !esElMismo;
 
                   return SizedBox(
                     width: 62,
@@ -104,13 +109,13 @@ class _InicioScreenState extends State<InicioScreen> {
                         backgroundColor: esElMismo
                             ? Colors.blue.shade600
                             : (estaUsadoEnOtraParte
-                                ? Colors.orange.shade50
-                                : Colors.blue.shade50),
+                                  ? Colors.orange.shade50
+                                  : Colors.blue.shade50),
                         foregroundColor: esElMismo
                             ? Colors.white
                             : (estaUsadoEnOtraParte
-                                ? Colors.orange.shade900
-                                : Colors.blue.shade900),
+                                  ? Colors.orange.shade900
+                                  : Colors.blue.shade900),
                         elevation: esElMismo ? 4 : 1,
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
@@ -119,8 +124,8 @@ class _InicioScreenState extends State<InicioScreen> {
                             color: esElMismo
                                 ? Colors.blue
                                 : (estaUsadoEnOtraParte
-                                    ? Colors.orange.shade300
-                                    : Colors.blue.shade200),
+                                      ? Colors.orange.shade300
+                                      : Colors.blue.shade200),
                             width: esElMismo ? 2 : 1,
                           ),
                         ),
@@ -131,7 +136,8 @@ class _InicioScreenState extends State<InicioScreen> {
                         for (var pos in bloc.posicionesIniciales) {
                           int r = pos[0];
                           int c = pos[1];
-                          if (tablero.celdas[r][c] == num && !(r == fila && c == columna)) {
+                          if (tablero.celdas[r][c] == num &&
+                              !(r == fila && c == columna)) {
                             origenAnterior = [r, c];
                             tablero.celdas[r][c] = 0;
                           }
@@ -154,7 +160,9 @@ class _InicioScreenState extends State<InicioScreen> {
                             SnackBar(
                               content: Text(
                                 '💥 ¡El número $num cambió de casilla!',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               backgroundColor: Colors.orange.shade800,
                               behavior: SnackBarBehavior.floating,
@@ -202,7 +210,10 @@ class _InicioScreenState extends State<InicioScreen> {
                   icon: const Icon(Icons.delete_outline, color: Colors.red),
                   label: const Text(
                     'Quitar número',
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -234,205 +245,229 @@ class _InicioScreenState extends State<InicioScreen> {
         elevation: 1,
       ),
       body: SafeArea(
-      child: _tableroSeleccionado == null
-          ? _buildSelectorTablero()
-          : Column(
-        children: [
-          const SizedBox(height: 8),
-            // BANNER SUPERIOR (Estructura alineada con JuegoScreen)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: const Column(
+        child: _tableroSeleccionado == null
+            ? _buildSelectorTablero()
+            : Column(
                 children: [
+                  const SizedBox(height: 8),
+                  // BANNER SUPERIOR (Estructura alineada con JuegoScreen)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: const Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.touch_app_outlined,
+                              color: Colors.blue,
+                              size: 20,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Configuración de inicio',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Ubica los números del 1 al 6 en las casillas remarcadas para comenzar.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.touch_app_outlined, color: Colors.blue, size: 20),
-                      SizedBox(width: 8),
                       Text(
-                        'Configuración de inicio',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                        'Tablero $_tableroSeleccionado',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _tableroSeleccionado = null;
+                            for (final fila in tablero.celdas) {
+                              fila.fillRange(0, fila.length, 0);
+                            }
+                            _posicionExplosion = null;
+                          });
+                        },
+                        icon: const Icon(Icons.swap_horiz, size: 18),
+                        label: const Text('Cambiar tablero'),
                       ),
                     ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Ubica los números del 1 al 6 en las casillas remarcadas para comenzar.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      listo
+                          ? '¡Todos los números colocados! Ya puedes iniciar.'
+                          : 'Toca las casillas marcadas con borde grueso (+)',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: listo ? Colors.green.shade800 : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // TABLERO CENTRADO (EXPANDED CON ASPECT RATIO 1.0 IGUAL A JUEGO_SCREEN)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: AspectRatio(
+                        aspectRatio: 1.0,
+                        child: GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 7,
+                                crossAxisSpacing: 4,
+                                mainAxisSpacing: 4,
+                              ),
+                          itemCount: 49,
+                          itemBuilder: (context, index) {
+                            int fila = index ~/ 7;
+                            int columna = index % 7;
+                            int valor = tablero.celdas[fila][columna];
+                            Region region = _obtenerRegionCasilla(
+                              fila,
+                              columna,
+                            );
+                            bool esInicial = bloc.esPosicionInicial(
+                              fila,
+                              columna,
+                            );
+                            bool hayExplosionAqui =
+                                _posicionExplosion != null &&
+                                _posicionExplosion![0] == fila &&
+                                _posicionExplosion![1] == columna;
+
+                            return GestureDetector(
+                              onTap: () => _alTocarCasilla(fila, columna),
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    decoration: BoxDecoration(
+                                      color: _colorParaRegion(region),
+                                      border: Border.all(
+                                        color: esInicial
+                                            ? Colors.black87
+                                            : Colors.black12,
+                                        width: esInicial ? 3.0 : 1.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      boxShadow: esInicial
+                                          ? [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                                blurRadius: 3,
+                                                offset: const Offset(1, 2),
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        valor == 0
+                                            ? (esInicial ? '+' : '')
+                                            : '$valor',
+                                        style: TextStyle(
+                                          fontSize: valor == 0 ? 20 : 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: valor == 0
+                                              ? Colors.black38
+                                              : Colors.black87,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (hayExplosionAqui)
+                                    Positioned.fill(
+                                      child: _EfectoExplosion(
+                                        onFinished: () {
+                                          setState(() {
+                                            _posicionExplosion = null;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  // BOTÓN INFERIOR (UBICADO DENTRO DEL COLUMN AL IGUAL QUE JUEGO_SCREEN)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: listo
+                            ? () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) => JuegoScreen(
+                                      tablero: tablero,
+                                      tableroSeleccionado: _tableroSeleccionado,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        icon: Icon(
+                          listo
+                              ? Icons.check_circle_outline
+                              : Icons.lock_outline,
+                          size: 24,
+                        ),
+                        label: Text(
+                          listo ? '¡LISTO! AVANZAR' : 'COLOCA LOS 6 NÚMEROS',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey.shade300,
+                          disabledForegroundColor: Colors.grey.shade600,
+                          elevation: listo ? 4 : 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Tablero $_tableroSeleccionado',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _tableroSeleccionado = null;
-                      for (final fila in tablero.celdas) {
-                        fila.fillRange(0, fila.length, 0);
-                      }
-                      _posicionExplosion = null;
-                    });
-                  },
-                  icon: const Icon(Icons.swap_horiz, size: 18),
-                  label: const Text('Cambiar tablero'),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                listo
-                    ? '¡Todos los números colocados! Ya puedes iniciar.'
-                    : 'Toca las casillas marcadas con borde grueso (+)',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: listo ? Colors.green.shade800 : Colors.black87,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // TABLERO CENTRADO (EXPANDED CON ASPECT RATIO 1.0 IGUAL A JUEGO_SCREEN)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      crossAxisSpacing: 4,
-                      mainAxisSpacing: 4,
-                    ),
-                    itemCount: 49,
-                    itemBuilder: (context, index) {
-                      int fila = index ~/ 7;
-                      int columna = index % 7;
-                      int valor = tablero.celdas[fila][columna];
-                      Region region = _obtenerRegionCasilla(fila, columna);
-                      bool esInicial = bloc.esPosicionInicial(fila, columna);
-                      bool hayExplosionAqui = _posicionExplosion != null &&
-                          _posicionExplosion![0] == fila &&
-                          _posicionExplosion![1] == columna;
-
-                      return GestureDetector(
-                        onTap: () => _alTocarCasilla(fila, columna),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              decoration: BoxDecoration(
-                                color: _colorParaRegion(region),
-                                border: Border.all(
-                                  color: esInicial ? Colors.black87 : Colors.black12,
-                                  width: esInicial ? 3.0 : 1.0,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                                boxShadow: esInicial
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.12),
-                                          blurRadius: 3,
-                                          offset: const Offset(1, 2),
-                                        )
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  valor == 0 ? (esInicial ? '+' : '') : '$valor',
-                                  style: TextStyle(
-                                    fontSize: valor == 0 ? 20 : 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: valor == 0
-                                        ? Colors.black38
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (hayExplosionAqui)
-                              Positioned.fill(
-                                child: _EfectoExplosion(
-                                  onFinished: () {
-                                    setState(() {
-                                      _posicionExplosion = null;
-                                    });
-                                  },
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-            // BOTÓN INFERIOR (UBICADO DENTRO DEL COLUMN AL IGUAL QUE JUEGO_SCREEN)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: listo
-                      ? () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => JuegoScreen(
-                                tablero: tablero,
-                                tableroSeleccionado: _tableroSeleccionado,
-                              ),
-                            ),
-                          );
-                        }
-                      : null,
-                  icon: Icon(
-                    listo ? Icons.check_circle_outline : Icons.lock_outline,
-                    size: 24,
-                  ),
-                  label: Text(
-                    listo ? '¡LISTO! AVANZAR' : 'COLOCA LOS 6 NÚMEROS',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.1,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    disabledForegroundColor: Colors.grey.shade600,
-                    elevation: listo ? 4 : 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -517,6 +552,10 @@ class _InicioScreenState extends State<InicioScreen> {
         return Colors.purple.shade200;
       case Region.rojo:
         return Colors.red.shade200;
+      case Region.blanco:
+        return Colors.white;
+      case Region.naranja:
+        return Colors.orange.shade200;
     }
   }
 }
@@ -553,10 +592,7 @@ class _EfectoExplosion extends StatelessWidget {
                 ),
               ),
               child: const Center(
-                child: Text(
-                  '💥',
-                  style: TextStyle(fontSize: 26),
-                ),
+                child: Text('💥', style: TextStyle(fontSize: 26)),
               ),
             ),
           ),

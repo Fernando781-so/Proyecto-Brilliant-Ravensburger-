@@ -62,7 +62,7 @@ void main() {
   // 2. MODELO DEL TABLERO Y ZONAS
   // ========================================================
   group('Modelo de Tablero y Zonas', () {
-    test('existen las cinco regiones en el enum', () {
+    test('existen las siete regiones en el enum', () {
       expect(
         Region.values,
         containsAll(<Region>[
@@ -71,9 +71,11 @@ void main() {
           Region.azul,
           Region.lila,
           Region.rojo,
+          Region.blanco,
+          Region.naranja,
         ]),
       );
-      expect(Region.values.length, 5);
+      expect(Region.values.length, 7);
     });
 
     test('se instancian las 9 zonas independientes correctamente', () {
@@ -81,6 +83,56 @@ void main() {
       expect(zonas.map((zona) => zona.region).toSet(), hasLength(5));
       expect(zonas.every((zona) => zona.posiciones.isNotEmpty), isTrue);
     });
+
+    test(
+      'crea los tres diseños nuevos con sus zonas y posiciones iniciales',
+      () {
+        final tableros = [2, 3, 4].map(crearTablero).toList();
+        expect(tableros, hasLength(3));
+        expect(tableros.every((tablero) => tablero.celdas.length == 7), isTrue);
+        expect(tableros.every((tablero) => tablero.zonas.isNotEmpty), isTrue);
+        for (final tablero in tableros) {
+          final posiciones = tablero.zonas
+              .expand((zona) => zona.posiciones)
+              .map((posicion) => '${posicion[0]},${posicion[1]}')
+              .toList();
+          expect(posiciones, hasLength(49));
+          expect(posiciones.toSet(), hasLength(49));
+        }
+        expect([2, 3, 4].map(obtenerPosicionesInicialesTablero).toList(), [
+          [
+            [0, 4],
+            [2, 0],
+            [3, 2],
+            [4, 5],
+            [5, 1],
+            [6, 4],
+          ],
+          [
+            [1, 2],
+            [1, 5],
+            [3, 3],
+            [4, 1],
+            [4, 6],
+            [6, 2],
+          ],
+          [
+            [0, 4],
+            [2, 2],
+            [2, 5],
+            [3, 0],
+            [5, 4],
+            [6, 1],
+          ],
+        ]);
+        expect(
+          [2, 3, 4].every(
+            (numero) => obtenerPosicionesInicialesTablero(numero).length == 6,
+          ),
+          isTrue,
+        );
+      },
+    );
 
     test(
       'cada zona contiene coordenadas dentro del rango del tablero (0 a 6)',
@@ -102,6 +154,46 @@ void main() {
       expect(tablero.celdas.length, 7);
       expect(tablero.celdas.every((fila) => fila.length == 7), isTrue);
       expect(tablero.zonas.length, 9);
+    });
+
+    test('configura puntajes y rangos de blanco y naranja por tablero', () {
+      final tablero2 = crearTablero(2);
+      final tablero3 = crearTablero(3);
+      final tablero4 = crearTablero(4);
+
+      expect(
+        tablero2.zonas
+            .singleWhere((zona) => zona.region == Region.blanco)
+            .bolsaPuntos,
+        [3, 2, 1],
+      );
+      expect(
+        tablero3.zonas
+            .singleWhere((zona) => zona.region == Region.blanco)
+            .bolsaPuntos,
+        [8, 6, 4],
+      );
+      final zonasNaranjas = tablero4.zonas
+          .where((zona) => zona.region == Region.naranja)
+          .toList();
+      expect(zonasNaranjas, hasLength(2));
+      expect(
+        zonasNaranjas.map((zona) => [zona.valorMinimo, zona.valorMaximo]),
+        [
+          [4, 6],
+          [1, 3],
+        ],
+      );
+      expect(
+        zonasNaranjas.every(
+          (zona) =>
+              zona.bolsaPuntos.length == 3 &&
+              zona.bolsaPuntos[0] == 6 &&
+              zona.bolsaPuntos[1] == 4 &&
+              zona.bolsaPuntos[2] == 3,
+        ),
+        isTrue,
+      );
     });
 
     test('detecta cuándo todas las casillas del tablero están llenas', () {
@@ -178,6 +270,25 @@ void main() {
 
       expect(esColocacionPermitidaEnRegion(tablero, 2, 2, 3), isFalse);
       expect(esColocacionPermitidaEnRegion(tablero, 2, 2, 4), isTrue);
+    });
+
+    test(' Blanco exige el mismo número en todas sus casillas', () {
+      final tablero = crearTablero(3);
+      tablero.celdas[0][3] = 4;
+
+      expect(esColocacionPermitidaEnRegion(tablero, 1, 0, 4), isTrue);
+      expect(esColocacionPermitidaEnRegion(tablero, 1, 0, 5), isFalse);
+    });
+
+    test(' Naranja aplica rangos diferentes arriba y abajo', () {
+      final tablero = crearTablero(4);
+      tablero.celdas[0][1] = 4;
+      tablero.celdas[6][0] = 2;
+
+      expect(esColocacionPermitidaEnRegion(tablero, 0, 0, 6), isTrue);
+      expect(esColocacionPermitidaEnRegion(tablero, 0, 0, 3), isFalse);
+      expect(esColocacionPermitidaEnRegion(tablero, 6, 1, 3), isTrue);
+      expect(esColocacionPermitidaEnRegion(tablero, 6, 1, 4), isFalse);
     });
   });
 

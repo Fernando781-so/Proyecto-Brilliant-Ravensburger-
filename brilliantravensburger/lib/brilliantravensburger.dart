@@ -2,13 +2,7 @@
 // TIPOS / REGIONES
 // ==========================================================
 
-enum Region {
-  amarillo,
-  verde,
-  azul,
-  lila,
-  rojo,
-}
+enum Region { amarillo, verde, azul, lila, rojo, blanco, naranja }
 
 // ==========================================================
 // BOLSA DE PUNTOS POR REGIÓN
@@ -26,6 +20,10 @@ List<int> obtenerBolsaPuntosRegion(Region region) {
       return [6, 4, 2];
     case Region.lila:
       return [6, 4, 2];
+    case Region.blanco:
+      return [3, 2, 1];
+    case Region.naranja:
+      return [6, 4, 3];
   }
 }
 
@@ -37,11 +35,15 @@ class Zona {
   final Region region;
   final List<List<int>> posiciones;
   final List<int> bolsaPuntos;
+  final int? valorMinimo;
+  final int? valorMaximo;
 
   Zona({
     required this.region,
     required this.posiciones,
     List<int>? bolsaPuntos,
+    this.valorMinimo,
+    this.valorMaximo,
   }) : bolsaPuntos = bolsaPuntos ?? obtenerBolsaPuntosRegion(region);
 
   // Obtiene únicamente los valores pertenecientes a esta instancia de Zona
@@ -69,6 +71,13 @@ class Zona {
       return false;
     }
     List<int> valores = obtenerValores(tablero);
+    if (region == Region.naranja) {
+      if (valorMinimo == null || valorMaximo == null) return false;
+      return _todosEnRango(valores, valorMinimo!, valorMaximo!);
+    }
+    if (region == Region.amarillo && posiciones.length != 5) {
+      return true;
+    }
     return esReglaCumplida(region, valores);
   }
 
@@ -110,6 +119,12 @@ bool esReglaCumplida(Region region, List<int> valores) {
 
     case Region.verde:
       return true;
+
+    case Region.blanco:
+      return esReglaBlancaCumplida(valores);
+
+    case Region.naranja:
+      return false;
   }
 }
 
@@ -140,14 +155,10 @@ class Tablero {
   final List<List<int>> celdas;
   final List<Zona> zonas;
 
-  Tablero({
-    required this.celdas,
-    required this.zonas,
-  });
+  Tablero({required this.celdas, required this.zonas});
 
-  bool get estaCompleto => celdas.every(
-        (fila) => fila.every((celda) => celda != 0),
-      );
+  bool get estaCompleto =>
+      celdas.every((fila) => fila.every((celda) => celda != 0));
 
   List<int> obtenerValoresRegion(Region region) {
     List<int> valores = [];
@@ -174,7 +185,8 @@ class Tablero {
   Map<Region, int> obtenerResumenPuntos() {
     Map<Region, int> resumen = {};
     for (Zona zona in zonas) {
-      resumen[zona.region] = (resumen[zona.region] ?? 0) + zona.obtenerPuntuacion(this);
+      resumen[zona.region] =
+          (resumen[zona.region] ?? 0) + zona.obtenerPuntuacion(this);
     }
     return resumen;
   }
@@ -300,16 +312,233 @@ List<Zona> crearZonas() {
   ];
 }
 
+const Map<int, List<String>> _disenosTableros = {
+  2: [
+    'M M M B V V V',
+    'M A Az Az Az A V',
+    'M R R Az Az R V',
+    'R R R A R R R',
+    'V R Az Az R R M',
+    'V A Az Az Az A M',
+    'V V V B M M M',
+  ],
+  3: [
+    'A A M B M A A',
+    'B A M M M A B',
+    'R R R M R R R',
+    'R R R B R R R',
+    'V Az Az Az Az Az V',
+    'V V V V V V V',
+    'M M M B M M M',
+  ],
+  4: [
+    'N N N N N N N',
+    'A R Az V Az R A',
+    'R R M M M R R',
+    'A V Az M Az V A',
+    'R R M M M R R',
+    'A R Az V Az R A',
+    'N N N N N N N',
+  ],
+};
+
+const Map<int, List<List<int>>> _posicionesInicialesPorTablero = {
+  1: [
+    [0, 2],
+    [1, 5],
+    [3, 1],
+    [3, 4],
+    [5, 2],
+    [6, 4],
+  ],
+  2: [
+    [0, 4],
+    [2, 0],
+    [3, 2],
+    [4, 5],
+    [5, 1],
+    [6, 4],
+  ],
+  3: [
+    [1, 2],
+    [1, 5],
+    [3, 3],
+    [4, 1],
+    [4, 6],
+    [6, 2],
+  ],
+  4: [
+    [0, 4],
+    [2, 2],
+    [2, 5],
+    [3, 0],
+    [5, 4],
+    [6, 1],
+  ],
+};
+
+Tablero crearTablero(int numero) {
+  if (numero == 1) {
+    return Tablero(
+      celdas: List.generate(7, (_) => List.generate(7, (_) => 0)),
+      zonas: zonas,
+    );
+  }
+
+  final diseno = _disenosTableros[numero];
+  if (diseno == null) {
+    throw ArgumentError.value(numero, 'numero', 'Debe estar entre 1 y 4');
+  }
+
+  final regiones = diseno
+      .map((fila) => fila.split(' ').map(_regionDesdeCodigo).toList())
+      .toList();
+
+  return Tablero(
+    celdas: List.generate(7, (_) => List.generate(7, (_) => 0)),
+    zonas: _crearZonasDesdeDiseno(regiones, numero),
+  );
+}
+
+List<List<int>> obtenerPosicionesInicialesTablero(int numero) {
+  final posiciones = _posicionesInicialesPorTablero[numero];
+  if (posiciones == null) {
+    throw ArgumentError.value(numero, 'numero', 'Debe estar entre 1 y 4');
+  }
+  return posiciones.map((posicion) => List<int>.from(posicion)).toList();
+}
+
+Region _regionDesdeCodigo(String codigo) {
+  switch (codigo) {
+    case 'A':
+      return Region.amarillo;
+    case 'Az':
+      return Region.azul;
+    case 'B':
+      return Region.blanco;
+    case 'M':
+      return Region.lila;
+    case 'N':
+      return Region.naranja;
+    case 'R':
+      return Region.rojo;
+    case 'V':
+      return Region.verde;
+    default:
+      throw ArgumentError.value(
+        codigo,
+        'codigo',
+        'Código de región desconocido',
+      );
+  }
+}
+
+List<Zona> _crearZonasDesdeDiseno(
+  List<List<Region>> regiones,
+  int numeroTablero,
+) {
+  final zonas = <Zona>[];
+  final visitadas = List.generate(7, (_) => List.generate(7, (_) => false));
+  final posicionesBlancas = <List<int>>[];
+  final posicionesNaranjasSuperiores = <List<int>>[];
+  final posicionesNaranjasInferiores = <List<int>>[];
+
+  for (var fila = 0; fila < 7; fila++) {
+    for (var columna = 0; columna < 7; columna++) {
+      final region = regiones[fila][columna];
+      if (region == Region.blanco) {
+        posicionesBlancas.add([fila, columna]);
+        visitadas[fila][columna] = true;
+      } else if (region == Region.naranja) {
+        final posiciones = fila <= 2
+            ? posicionesNaranjasSuperiores
+            : posicionesNaranjasInferiores;
+        posiciones.add([fila, columna]);
+        visitadas[fila][columna] = true;
+      }
+    }
+  }
+
+  if (posicionesBlancas.isNotEmpty) {
+    zonas.add(
+      Zona(
+        region: Region.blanco,
+        posiciones: posicionesBlancas,
+        bolsaPuntos: numeroTablero == 3 ? [8, 6, 4] : [3, 2, 1],
+      ),
+    );
+  }
+
+  void agregarZonaNaranja(
+    List<List<int>> posiciones,
+    int valorMinimo,
+    int valorMaximo,
+  ) {
+    if (posiciones.isNotEmpty) {
+      zonas.add(
+        Zona(
+          region: Region.naranja,
+          posiciones: posiciones,
+          bolsaPuntos: [6, 4, 3],
+          valorMinimo: valorMinimo,
+          valorMaximo: valorMaximo,
+        ),
+      );
+    }
+  }
+
+  agregarZonaNaranja(posicionesNaranjasSuperiores, 4, 6);
+  agregarZonaNaranja(posicionesNaranjasInferiores, 1, 3);
+
+  const direcciones = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+  ];
+
+  for (var fila = 0; fila < 7; fila++) {
+    for (var columna = 0; columna < 7; columna++) {
+      if (visitadas[fila][columna]) continue;
+
+      final region = regiones[fila][columna];
+      final posiciones = <List<int>>[];
+      final pendientes = <List<int>>[
+        [fila, columna],
+      ];
+      visitadas[fila][columna] = true;
+
+      while (pendientes.isNotEmpty) {
+        final actual = pendientes.removeLast();
+        posiciones.add(actual);
+
+        for (final direccion in direcciones) {
+          final nuevaFila = actual[0] + direccion[0];
+          final nuevaColumna = actual[1] + direccion[1];
+          if (nuevaFila < 0 ||
+              nuevaFila >= 7 ||
+              nuevaColumna < 0 ||
+              nuevaColumna >= 7 ||
+              visitadas[nuevaFila][nuevaColumna] ||
+              regiones[nuevaFila][nuevaColumna] != region) {
+            continue;
+          }
+          visitadas[nuevaFila][nuevaColumna] = true;
+          pendientes.add([nuevaFila, nuevaColumna]);
+        }
+      }
+
+      zonas.add(Zona(region: region, posiciones: posiciones));
+    }
+  }
+
+  return zonas;
+}
+
 final List<Zona> zonas = crearZonas();
 
-List<int> obtenerValoresRegion(
-  List<List<int>> tablero,
-  Region region,
-) {
-  Tablero tableroJuego = Tablero(
-    celdas: tablero,
-    zonas: zonas,
-  );
+List<int> obtenerValoresRegion(List<List<int>> tablero, Region region) {
+  Tablero tableroJuego = Tablero(celdas: tablero, zonas: zonas);
 
   return tableroJuego.obtenerValoresRegion(region);
 }
@@ -379,24 +608,15 @@ Region determinarRegion(List<int> lista) {
 class InicioBloc {
   final Tablero tablero;
 
-  final List<List<int>> posicionesIniciales = [
-    [0, 2], // 1,3
-    [1, 5], // 2,6
-    [3, 1], // 4,2
-    [3, 4], // 4,5
-    [5, 2], // 6,3
-    [6, 4], // 7,5
-  ];
+  final List<List<int>> posicionesIniciales;
 
-  InicioBloc({
-    required this.tablero,
-  });
+  InicioBloc({required this.tablero, List<List<int>>? posicionesIniciales})
+    : posicionesIniciales =
+          posicionesIniciales ?? obtenerPosicionesInicialesTablero(1);
 
   bool esPosicionInicial(int fila, int columna) {
     return posicionesIniciales.any(
-      (posicion) =>
-          posicion[0] == fila &&
-          posicion[1] == columna,
+      (posicion) => posicion[0] == fila && posicion[1] == columna,
     );
   }
 
@@ -417,11 +637,7 @@ class InicioBloc {
     return false;
   }
 
-  bool colocarNumero(
-    int fila,
-    int columna,
-    int numero,
-  ) {
+  bool colocarNumero(int fila, int columna, int numero) {
     if (!esPosicionInicial(fila, columna)) {
       return false;
     }
@@ -514,6 +730,19 @@ bool esColocacionPermitidaEnRegion(
     case Region.rojo:
       // No se pueden repetir números dentro del mismo bloque
       return futurosValores.toSet().length == futurosValores.length;
+
+    case Region.blanco:
+      return esReglaBlancaCumplida(futurosValores);
+
+    case Region.naranja:
+      if (zonaActual.valorMinimo == null || zonaActual.valorMaximo == null) {
+        return false;
+      }
+      return _todosEnRango(
+        futurosValores,
+        zonaActual.valorMinimo!,
+        zonaActual.valorMaximo!,
+      );
   }
 }
 
