@@ -191,7 +191,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            for (final region in Region.values)
+            for (final region in Region.values.where(resumenPuntos.containsKey))
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
@@ -222,6 +222,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
         return 'Lila';
       case Region.rojo:
         return 'Rojo';
+      case Region.blanco:
+        return 'Blanco';
+      case Region.naranja:
+        return 'Naranja';
     }
   }
 
@@ -229,7 +233,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
   void _alTocarCasilla(int fila, int columna) {
     if (partidaFinalizada) return;
 
-    bool esValida = posicionesValidas.any((p) => p[0] == fila && p[1] == columna);
+    bool esValida = posicionesValidas.any(
+      (p) => p[0] == fila && p[1] == columna,
+    );
 
     if (!esValida) return;
 
@@ -259,7 +265,8 @@ class _JuegoScreenState extends State<JuegoScreen> {
           TextButton.icon(
             onPressed: () {
               setState(() {
-                widget.tablero.celdas[fila][columna] = 0; // Se revierte la jugada
+                widget.tablero.celdas[fila][columna] =
+                    0; // Se revierte la jugada
               });
               Navigator.of(context).pop();
             },
@@ -306,8 +313,8 @@ class _JuegoScreenState extends State<JuegoScreen> {
           partidaFinalizada
               ? 'Partida finalizada'
               : widget.tableroSeleccionado == null
-                  ? 'Brilliant - Turno $turno'
-                  : 'Brilliant - Tablero ${widget.tableroSeleccionado} - Turno $turno',
+              ? 'Brilliant - Turno $turno'
+              : 'Brilliant - Tablero ${widget.tableroSeleccionado} - Turno $turno',
         ),
         centerTitle: true,
         actions: [
@@ -315,7 +322,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.amber.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -348,7 +358,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 children: [
                   const Text(
                     '🎲 Dados de la mesa (Lanzamiento Automático):',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
@@ -401,7 +415,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
               child: Text(
                 'Ancla: $numeroAncla ➔ Colocarás: $numeroColocar en una casilla iluminada',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.black87,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -412,11 +430,12 @@ class _JuegoScreenState extends State<JuegoScreen> {
                   aspectRatio: 1.0,
                   child: GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      crossAxisSpacing: 4,
-                      mainAxisSpacing: 4,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          crossAxisSpacing: 4,
+                          mainAxisSpacing: 4,
+                        ),
                     itemCount: 49,
                     itemBuilder: (context, index) {
                       int fila = index ~/ 7;
@@ -437,7 +456,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
                                 ? Colors.amber.shade300
                                 : _colorParaRegion(region),
                             border: Border.all(
-                              color: esValida ? Colors.amber.shade900 : Colors.black26,
+                              color: esValida
+                                  ? Colors.amber.shade900
+                                  : Colors.black26,
                               width: esValida ? 3.5 : 1.0,
                             ),
                             borderRadius: BorderRadius.circular(6),
@@ -447,7 +468,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                                       color: Colors.amber.withOpacity(0.6),
                                       blurRadius: 8,
                                       spreadRadius: 2,
-                                    )
+                                    ),
                                   ]
                                 : null,
                           ),
@@ -528,7 +549,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
               color: Colors.black.withOpacity(0.12),
               blurRadius: 4,
               offset: const Offset(2, 2),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -570,6 +591,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
         return Colors.purple.shade200;
       case Region.rojo:
         return Colors.red.shade200;
+      case Region.blanco:
+        return Colors.white;
+      case Region.naranja:
+        return Colors.orange.shade200;
     }
   }
 }
