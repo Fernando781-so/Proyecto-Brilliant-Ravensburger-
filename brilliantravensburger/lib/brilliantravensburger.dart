@@ -442,6 +442,17 @@ List<Zona> _crearZonasDesdeDiseno(
   final posicionesBlancas = <List<int>>[];
   final posicionesNaranjasSuperiores = <List<int>>[];
   final posicionesNaranjasInferiores = <List<int>>[];
+  final posicionesRojasIzquierdas = <List<int>>[];
+  final posicionesRojasDerechas = <List<int>>[];
+  final posicionesLilasMapa3Superiores = <List<int>>[];
+  final posicionesLilasMapa3Inferiores = <List<int>>[];
+  final regionesEnUnBloque = switch (numeroTablero) {
+    2 => {Region.amarillo},
+    3 => {Region.amarillo},
+    4 => {Region.amarillo, Region.azul, Region.verde},
+    _ => <Region>{},
+  };
+  final posicionesRegionesAgrupadas = <Region, List<List<int>>>{};
 
   for (var fila = 0; fila < 7; fila++) {
     for (var columna = 0; columna < 7; columna++) {
@@ -455,6 +466,23 @@ List<Zona> _crearZonasDesdeDiseno(
             : posicionesNaranjasInferiores;
         posiciones.add([fila, columna]);
         visitadas[fila][columna] = true;
+      } else if (numeroTablero == 4 && region == Region.rojo) {
+        final posiciones = columna <= 3
+            ? posicionesRojasIzquierdas
+            : posicionesRojasDerechas;
+        posiciones.add([fila, columna]);
+        visitadas[fila][columna] = true;
+      } else if (numeroTablero == 3 && region == Region.lila) {
+        final posiciones = fila <= 2
+            ? posicionesLilasMapa3Superiores
+            : posicionesLilasMapa3Inferiores;
+        posiciones.add([fila, columna]);
+        visitadas[fila][columna] = true;
+      } else if (regionesEnUnBloque.contains(region)) {
+        posicionesRegionesAgrupadas
+            .putIfAbsent(region, () => <List<int>>[])
+            .add([fila, columna]);
+        visitadas[fila][columna] = true;
       }
     }
   }
@@ -466,6 +494,27 @@ List<Zona> _crearZonasDesdeDiseno(
         posiciones: posicionesBlancas,
         bolsaPuntos: numeroTablero == 3 ? [8, 6, 4] : [3, 2, 1],
       ),
+    );
+  }
+
+  for (final entry in posicionesRegionesAgrupadas.entries) {
+    zonas.add(Zona(region: entry.key, posiciones: entry.value));
+  }
+
+  if (posicionesRojasIzquierdas.isNotEmpty) {
+    zonas.add(Zona(region: Region.rojo, posiciones: posicionesRojasIzquierdas));
+  }
+  if (posicionesRojasDerechas.isNotEmpty) {
+    zonas.add(Zona(region: Region.rojo, posiciones: posicionesRojasDerechas));
+  }
+  if (posicionesLilasMapa3Superiores.isNotEmpty) {
+    zonas.add(
+      Zona(region: Region.lila, posiciones: posicionesLilasMapa3Superiores),
+    );
+  }
+  if (posicionesLilasMapa3Inferiores.isNotEmpty) {
+    zonas.add(
+      Zona(region: Region.lila, posiciones: posicionesLilasMapa3Inferiores),
     );
   }
 

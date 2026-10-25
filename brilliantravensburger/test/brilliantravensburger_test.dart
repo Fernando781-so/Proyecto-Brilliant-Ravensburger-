@@ -134,6 +134,45 @@ void main() {
       },
     );
 
+    test('agrupa los bloques de cada mapa según su diseño', () {
+      final bloquesEsperados = {
+        2: {
+          Region.azul: 2,
+          Region.verde: 2,
+          Region.lila: 2,
+          Region.amarillo: 1,
+          Region.rojo: 2,
+          Region.blanco: 1,
+        },
+        3: {
+          Region.amarillo: 1,
+          Region.rojo: 2,
+          Region.azul: 1,
+          Region.verde: 1,
+          Region.lila: 2,
+          Region.blanco: 1,
+        },
+        4: {
+          Region.naranja: 2,
+          Region.amarillo: 1,
+          Region.rojo: 2,
+          Region.azul: 1,
+          Region.lila: 1,
+          Region.verde: 1,
+        },
+      };
+
+      for (final entry in bloquesEsperados.entries) {
+        final tablero = crearTablero(entry.key);
+        final cantidades = {
+          for (final region in Region.values)
+            region: tablero.zonas.where((zona) => zona.region == region).length,
+        }..removeWhere((_, cantidad) => cantidad == 0);
+
+        expect(cantidades, entry.value, reason: 'Mapa ${entry.key}');
+      }
+    });
+
     test(
       'cada zona contiene coordenadas dentro del rango del tablero (0 a 6)',
       () {
