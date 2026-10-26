@@ -27,6 +27,10 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   Region _obtenerRegionCasilla(int fila, int columna) {
+    return _obtenerRegionEnTablero(tablero, fila, columna);
+  }
+
+  Region _obtenerRegionEnTablero(Tablero tablero, int fila, int columna) {
     for (var zona in tablero.zonas) {
       if (zona.posiciones.any((p) => p[0] == fila && p[1] == columna)) {
         return zona.region;
@@ -475,61 +479,98 @@ class _InicioScreenState extends State<InicioScreen> {
   Widget _buildSelectorTablero() {
     return Column(
       children: [
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              Icon(Icons.dashboard_outlined, size: 48, color: Colors.blue),
-              SizedBox(height: 12),
+              Icon(Icons.dashboard_outlined, size: 40, color: Colors.blue),
+              SizedBox(height: 8),
               Text(
                 'Elige un tablero',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: 6),
               Text(
-                'Selecciona uno de los cuatro tableros antes de colocar los números iniciales.',
+                'Revisa cómo se ve cada tablero. Desliza hacia abajo para ver las cuatro opciones.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.black54),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
-            ),
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: 4,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final numero = index + 1;
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  key: ValueKey('seleccionar-tablero-$numero'),
-                  onTap: () => _seleccionarTablero(numero),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.grid_on,
-                        size: 36,
-                        color: Colors.blue.shade700,
+              final tableroPrevia = crearTablero(numero);
+              return SizedBox(
+                height: 144,
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    key: ValueKey('seleccionar-tablero-$numero'),
+                    onTap: () => _seleccionarTablero(numero),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          _buildVistaPreviaTablero(numero, tableroPrevia),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tablero $numero',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.blue.shade200,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.touch_app_outlined,
+                                        size: 18,
+                                        color: Colors.blue.shade800,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Elegir',
+                                        style: TextStyle(
+                                          color: Colors.blue.shade900,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tablero $numero',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -537,6 +578,48 @@ class _InicioScreenState extends State<InicioScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVistaPreviaTablero(int numero, Tablero tableroPrevia) {
+    final posicionesIniciales = obtenerPosicionesInicialesTablero(numero);
+
+    return SizedBox(
+      key: ValueKey('vista-previa-tablero-$numero'),
+      width: 112,
+      height: 112,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 7,
+          crossAxisSpacing: 1.5,
+          mainAxisSpacing: 1.5,
+        ),
+        itemCount: 49,
+        itemBuilder: (context, index) {
+          final fila = index ~/ 7;
+          final columna = index % 7;
+          final region = _obtenerRegionEnTablero(
+            tableroPrevia,
+            fila,
+            columna,
+          );
+          final esPosicionInicial = posicionesIniciales.any(
+            (posicion) => posicion[0] == fila && posicion[1] == columna,
+          );
+
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: _colorParaRegion(region),
+              border: Border.all(
+                color: esPosicionInicial ? Colors.black87 : Colors.black26,
+                width: esPosicionInicial ? 1.5 : 0.5,
+              ),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        },
+      ),
     );
   }
 
