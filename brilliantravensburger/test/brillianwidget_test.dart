@@ -36,6 +36,37 @@ Finder _primeraCasillaValida() {
       .first;
 }
 
+Future<void> _jugarPrimerMovimientoDisponible(WidgetTester tester) async {
+  for (var intento = 0; intento < 100; intento++) {
+    if (find.text('Sin movimientos').evaluate().isNotEmpty) {
+      await tester.tap(find.text('Entendido'));
+      await tester.pumpAndSettle();
+      continue;
+    }
+
+    if (find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              RegExp(r'^\+[1-6]$').hasMatch(widget.data ?? ''),
+        )
+        .evaluate()
+        .isNotEmpty) {
+      await tester.tap(_primeraCasillaValida());
+      await tester.pumpAndSettle();
+      expect(find.text('¡Número Colocado!'), findsOneWidget);
+
+      await tester.tap(find.text('Avanzar Turno'));
+      await tester.pumpAndSettle();
+      return;
+    }
+
+    await tester.pumpAndSettle();
+  }
+
+  fail('No se encontró un movimiento válido después de 100 turnos.');
+}
+
 void _configurarSuperficie(WidgetTester tester) {
   tester.view.physicalSize = const Size(1000, 1000);
   tester.view.devicePixelRatio = 1;
@@ -161,6 +192,31 @@ void main() {
     expect(find.text('+'), findsNWidgets(5));
     expect(find.text('💥 ¡El número 1 cambió de casilla!'), findsOneWidget);
   });
+
+  for (final numeroTablero in [2, 3, 4]) {
+    testWidgets(
+      'permite iniciar y jugar un turno en el tablero $numeroTablero',
+      (tester) async {
+        _configurarSuperficie(tester);
+        await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+
+        await _iniciarPartida(tester, numeroTablero);
+
+        expect(
+          find.text('Brilliant - Tablero $numeroTablero - Turno 1'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Ancla:'), findsOneWidget);
+
+        await _jugarPrimerMovimientoDisponible(tester);
+
+        expect(
+          find.text('Brilliant - Tablero $numeroTablero - Turno 2'),
+          findsOneWidget,
+        );
+      },
+    );
+  }
 
   testWidgets('permite quitar un número y volver a la configuración inicial', (
     tester,
