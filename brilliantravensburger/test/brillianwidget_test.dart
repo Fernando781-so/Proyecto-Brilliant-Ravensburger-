@@ -53,6 +53,10 @@ void main() {
     expect(find.text('Elige un tablero'), findsOneWidget);
     for (var numero = 1; numero <= 4; numero++) {
       expect(find.text('Tablero $numero'), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('vista-previa-tablero-$numero')),
+        findsOneWidget,
+      );
     }
     expect(find.text('Configuración de inicio'), findsNothing);
 
