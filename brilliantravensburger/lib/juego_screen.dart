@@ -229,6 +229,73 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
+  String _mensajeCasilla(int fila, int columna, bool esValida) {
+    if (esValida) {
+      return 'Puedes colocar el número $numeroColocar aquí.';
+    }
+
+    final valorActual = widget.tablero.celdas[fila][columna];
+    if (valorActual != 0) {
+      return 'No puedes colocar el número $numeroColocar aquí porque la casilla ya contiene el número $valorActual.';
+    }
+
+    final esAdyacenteAlAncla = [
+      [fila - 1, columna],
+      [fila + 1, columna],
+      [fila, columna - 1],
+      [fila, columna + 1],
+    ].any(
+      (posicion) =>
+          posicion[0] >= 0 &&
+          posicion[0] < 7 &&
+          posicion[1] >= 0 &&
+          posicion[1] < 7 &&
+          widget.tablero.celdas[posicion[0]][posicion[1]] == numeroAncla,
+    );
+    if (!esAdyacenteAlAncla) {
+      return 'No puedes colocar el número $numeroColocar aquí porque la casilla no está junto al ancla $numeroAncla.';
+    }
+
+    Zona? zonaActual;
+    for (final zona in widget.tablero.zonas) {
+      if (zona.posiciones.any(
+        (posicion) => posicion[0] == fila && posicion[1] == columna,
+      )) {
+        zonaActual = zona;
+        break;
+      }
+    }
+    if (zonaActual == null) {
+      return 'No puedes colocar el número $numeroColocar aquí porque la casilla no pertenece a una región válida.';
+    }
+
+    final valoresExistentes = zonaActual.posiciones
+        .where((posicion) => posicion[0] != fila || posicion[1] != columna)
+        .map((posicion) => widget.tablero.celdas[posicion[0]][posicion[1]])
+        .where((valor) => valor != 0)
+        .toList();
+
+    switch (zonaActual.region) {
+      case Region.azul:
+        return 'No puedes colocar el número $numeroColocar aquí porque la región azul requiere números iguales${valoresExistentes.isEmpty ? '' : ' (ya hay ${valoresExistentes.join(', ')}).'}';
+      case Region.lila:
+        return 'No puedes colocar el número $numeroColocar aquí porque la región lila permite como máximo dos números distintos.';
+      case Region.rojo:
+        return 'No puedes colocar el número $numeroColocar aquí porque la región roja no permite repetir números.';
+      case Region.blanco:
+        return 'No puedes colocar el número $numeroColocar aquí porque la región blanca requiere números iguales${valoresExistentes.isEmpty ? '' : ' (ya hay ${valoresExistentes.join(', ')}).'}';
+      case Region.naranja:
+        if (zonaActual.valorMinimo != null && zonaActual.valorMaximo != null) {
+          return 'No puedes colocar el número $numeroColocar aquí porque la región naranja solo permite números del ${zonaActual.valorMinimo} al ${zonaActual.valorMaximo}.';
+        }
+        return 'No puedes colocar el número $numeroColocar aquí porque la región naranja no tiene un rango válido.';
+      case Region.amarillo:
+        return 'No puedes colocar el número $numeroColocar aquí porque la región amarilla ya tiene el máximo de casillas permitidas.';
+      case Region.verde:
+        return 'No puedes colocar el número $numeroColocar aquí porque la regla de la región verde no permite esta jugada.';
+    }
+  }
+
   // Al seleccionar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
     if (partidaFinalizada) return;
@@ -447,49 +514,60 @@ class _JuegoScreenState extends State<JuegoScreen> {
                         (p) => p[0] == fila && p[1] == columna,
                       );
 
-                      return GestureDetector(
-                        onTap: () => _alTocarCasilla(fila, columna),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          decoration: BoxDecoration(
-                            color: esValida
-                                ? Colors.amber.shade300
-                                : _colorParaRegion(region),
-                            border: Border.all(
-                              color: esValida
-                                  ? Colors.amber.shade900
-                                  : Colors.black26,
-                              width: esValida ? 3.5 : 1.0,
+                      return Tooltip(
+                        key: ValueKey('casilla-juego-$fila-$columna'),
+                        message: _mensajeCasilla(fila, columna, esValida),
+                        preferBelow: false,
+                        waitDuration: const Duration(milliseconds: 350),
+                        child: MouseRegion(
+                          cursor: esValida
+                              ? SystemMouseCursors.click
+                              : SystemMouseCursors.basic,
+                          child: GestureDetector(
+                            onTap: () => _alTocarCasilla(fila, columna),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              decoration: BoxDecoration(
+                                color: esValida
+                                    ? Colors.amber.shade300
+                                    : _colorParaRegion(region),
+                                border: Border.all(
+                                  color: esValida
+                                      ? Colors.amber.shade900
+                                      : Colors.black26,
+                                  width: esValida ? 3.5 : 1.0,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                                boxShadow: esValida
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.amber.withOpacity(0.6),
+                                          blurRadius: 8,
+                                          spreadRadius: 2,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: esValida
+                                    ? Text(
+                                        '+$numeroColocar',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      )
+                                    : Text(
+                                        valor == 0 ? '' : '$valor',
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                              ),
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: esValida
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.amber.withOpacity(0.6),
-                                      blurRadius: 8,
-                                      spreadRadius: 2,
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: esValida
-                                ? Text(
-                                    '+$numeroColocar',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.amber.shade900,
-                                    ),
-                                  )
-                                : Text(
-                                    valor == 0 ? '' : '$valor',
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
                           ),
                         ),
                       );
