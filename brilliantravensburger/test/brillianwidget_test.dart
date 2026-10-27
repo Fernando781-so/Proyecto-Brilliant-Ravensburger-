@@ -1,6 +1,7 @@
 import 'package:brilliantravensburger/inicio_screen.dart';
 import 'package:brilliantravensburger/brilliantravensburger.dart';
 import 'package:brilliantravensburger/juego_screen.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -280,6 +281,61 @@ void main() {
       expect(find.text('Brilliant - Tablero 3 - Turno 3'), findsOneWidget);
     },
   );
+
+  testWidgets('explica al pasar el cursor si una casilla acepta el número', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final celdas = List.generate(7, (_) => List.filled(7, 0));
+    final posicionesOcupadas = [
+      [2, 2],
+      [2, 3],
+      [2, 4],
+      [3, 2],
+      [3, 3],
+      [3, 4],
+    ];
+    for (var i = 0; i < posicionesOcupadas.length; i++) {
+      final posicion = posicionesOcupadas[i];
+      celdas[posicion[0]][posicion[1]] = i + 1;
+    }
+
+    final tablero = Tablero(
+      celdas: celdas,
+      zonas: [
+        Zona(
+          region: Region.verde,
+          posiciones: [
+            for (var fila = 0; fila < 7; fila++)
+              for (var columna = 0; columna < 7; columna++)
+                [fila, columna],
+          ],
+        ),
+      ],
+    );
+    await tester.pumpWidget(MaterialApp(home: JuegoScreen(tablero: tablero)));
+    await tester.pumpAndSettle();
+
+    final casillaValida = find.byWidgetPredicate(
+      (widget) =>
+          widget is Tooltip &&
+          widget.message?.startsWith('Puedes colocar el número') == true,
+    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: tester.getCenter(casillaValida.first));
+    await mouse.moveTo(tester.getCenter(casillaValida.first));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(find.textContaining('Puedes colocar el número'), findsOneWidget);
+
+    final casillaOcupada = find.byKey(const ValueKey('casilla-juego-2-2'));
+    await mouse.moveTo(tester.getCenter(casillaOcupada));
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(
+      find.textContaining('la casilla ya contiene el número 1'),
+      findsOneWidget,
+    );
+    await mouse.removePointer();
+  });
 
   testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
     tester,
