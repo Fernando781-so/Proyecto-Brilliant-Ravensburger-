@@ -320,7 +320,7 @@ void main() {
       (widget) =>
           widget is Tooltip &&
           widget.message?.startsWith('Puedes colocar el número') == true,
-       );
+        );
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: tester.getCenter(casillaValida.first));
     await mouse.moveTo(tester.getCenter(casillaValida.first));
