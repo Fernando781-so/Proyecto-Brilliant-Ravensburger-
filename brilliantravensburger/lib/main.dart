@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'inicio_screen.dart';
+import 'auth_screen.dart';
 
 void main() {
-  runApp(const MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: InicioScreen(),
-  ));
+  runApp(
+    const MaterialApp(debugShowCheckedModeBanner: false, home: AuthScreen()),
+  );
 }
