@@ -22,73 +22,77 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _token;
   String? _currentUser;
 
-  Future<void> _submit() async {
-    setState(() => _isLoading = true);
-    final endpoint = _isLogin ? '/login' : '/register';
-    
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text.trim(),
-        }),
+Future<void> _submit() async {
+  setState(() => _isLoading = true);
+  final endpoint = _isLogin ? '/login' : '/register';
+  
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl$endpoint'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'username': _usernameController.text.trim(),
+        'password': _passwordController.text.trim(),
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    // 👈 AQUÍ VA LA LÍNEA: evita usar 'context' si la pantalla se cerró durante la petición
+    if (!mounted) return;
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data['message'], style: const TextStyle(color: Colors.white)), backgroundColor: Colors.green),
       );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'], style: const TextStyle(color: Colors.white)), backgroundColor: Colors.green),
-        );
-        
-        if (_isLogin) {
-          setState(() {
-            _token = data['token'];
-            _currentUser = _usernameController.text.trim();
-          });
-        } else {
-          // Si se registró, cambiar a modo login
-          setState(() => _isLogin = true);
-        }
-      } else {
-        _mostrarError(data['error'] ?? 'Error desconocido');
-      }
-    } catch (e) {
-      _mostrarError('Error de conexión con el servidor');
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _deleteAccount() async {
-    if (_token == null) return;
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/delete-account'),
-        headers: {'Authorization': 'Bearer $_token'},
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cuenta eliminada exitosamente'), backgroundColor: Colors.orange),
-        );
+      
+      if (_isLogin) {
         setState(() {
-          _token = null;
-          _currentUser = null;
-          _usernameController.clear();
-          _passwordController.clear();
+          _token = data['token'];
+          _currentUser = _usernameController.text.trim();
         });
+      } else {
+        setState(() => _isLogin = true);
       }
-    } catch (e) {
-      _mostrarError('Error al eliminar la cuenta');
-    } finally {
-      setState(() => _isLoading = false);
+    } else {
+      _mostrarError(data['error'] ?? 'Error desconocido');
     }
+  } catch (e) {
+    _mostrarError('Error de conexión con el servidor');
+  } finally {
+    setState(() => _isLoading = false);
   }
+}
+
+Future<void> _deleteAccount() async {
+  if (_token == null) return;
+  setState(() => _isLoading = true);
+
+  try {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/delete-account'),
+      headers: {'Authorization': 'Bearer $_token'},
+    );
+
+    if (!mounted) return; // 👈 También va aquí antes de mostrar la SnackBar
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cuenta eliminada exitosamente'), backgroundColor: Colors.orange),
+      );
+      setState(() {
+        _token = null;
+        _currentUser = null;
+        _usernameController.clear();
+        _passwordController.clear();
+      });
+    }
+  } catch (e) {
+    _mostrarError('Error al eliminar la cuenta');
+  } finally {
+    setState(() => _isLoading = false);
+  }
+}
 
   void _mostrarError(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -161,12 +165,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
     // VISTA DE LOGIN / REGISTRO
     return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+appBar: AppBar(title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'), centerTitle: true),
+  body: SingleChildScrollView( // <--- Agregado para evitar desbordamiento
+    child: Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
             Icon(Icons.casino, size: 80, color: Colors.blue.shade700),
             const SizedBox(height: 30),
             TextField(
@@ -202,6 +207,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ],
         ),
       ),
+     ),
     );
   }
 }
