@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'inicio_screen.dart';
 
 // REEMPLAZA ESTA URL CON TU URL DE NGROK O RENDER
-const String baseUrl = 'https://tu-url-de-ngrok.app/api'; 
+const String baseUrl = 'http://192.168.137.1:3000/api'; 
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
