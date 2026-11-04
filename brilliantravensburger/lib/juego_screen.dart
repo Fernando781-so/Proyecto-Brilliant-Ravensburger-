@@ -22,6 +22,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
   int anclaSeleccionada = 1;
   int turno = 1;
   bool partidaFinalizada = false;
+  List<int>? _casillaJugada;
 
   final Random _random = Random();
 
@@ -29,6 +30,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
   int get numeroColocar => anclaSeleccionada == 1 ? dado2 : dado1;
 
   List<List<int>> get posicionesValidas {
+    if (_casillaJugada != null) return [];
     return obtenerPosicionesValidas(widget.tablero, numeroAncla, numeroColocar);
   }
 
@@ -141,23 +143,26 @@ class _JuegoScreenState extends State<JuegoScreen> {
   void _siguienteTurno() {
     if (partidaFinalizada) return;
 
+    if (widget.tablero.estaCompleto) {
+      _finalizarPartida();
+      return;
+    }
+
     setState(() {
+      _casillaJugada = null;
       turno++;
     });
     _lanzarDadosAutomatico();
   }
 
-  void _confirmarJugada() {
-    Navigator.of(context).pop();
+  void _deshacerJugada() {
+    final casilla = _casillaJugada;
+    if (casilla == null || partidaFinalizada) return;
 
-    if (widget.tablero.estaCompleto) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _finalizarPartida();
-      });
-      return;
-    }
-
-    _siguienteTurno();
+    setState(() {
+      widget.tablero.celdas[casilla[0]][casilla[1]] = 0;
+      _casillaJugada = null;
+    });
   }
 
   void _finalizarPartida() {
@@ -239,19 +244,20 @@ class _JuegoScreenState extends State<JuegoScreen> {
       return 'No puedes colocar el número $numeroColocar aquí porque la casilla ya contiene el número $valorActual.';
     }
 
-    final esAdyacenteAlAncla = [
-      [fila - 1, columna],
-      [fila + 1, columna],
-      [fila, columna - 1],
-      [fila, columna + 1],
-    ].any(
-      (posicion) =>
-          posicion[0] >= 0 &&
-          posicion[0] < 7 &&
-          posicion[1] >= 0 &&
-          posicion[1] < 7 &&
-          widget.tablero.celdas[posicion[0]][posicion[1]] == numeroAncla,
-    );
+    final esAdyacenteAlAncla =
+        [
+          [fila - 1, columna],
+          [fila + 1, columna],
+          [fila, columna - 1],
+          [fila, columna + 1],
+        ].any(
+          (posicion) =>
+              posicion[0] >= 0 &&
+              posicion[0] < 7 &&
+              posicion[1] >= 0 &&
+              posicion[1] < 7 &&
+              widget.tablero.celdas[posicion[0]][posicion[1]] == numeroAncla,
+        );
     if (!esAdyacenteAlAncla) {
       return 'No puedes colocar el número $numeroColocar aquí porque la casilla no está junto al ancla $numeroAncla.';
     }
@@ -298,7 +304,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   // Al seleccionar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
-    if (partidaFinalizada) return;
+    if (partidaFinalizada || _casillaJugada != null) return;
 
     bool esValida = posicionesValidas.any(
       (p) => p[0] == fila && p[1] == columna,
@@ -306,59 +312,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
     if (!esValida) return;
 
-    // Colocar temporalmente el número en la matriz
     setState(() {
       widget.tablero.celdas[fila][columna] = numeroColocar;
+      _casillaJugada = [fila, columna];
     });
-
-    // Cuadro de confirmación con opción de deshacer / cancelar
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 8),
-            Text('¡Número Colocado!'),
-          ],
-        ),
-        content: Text(
-          'Se ha colocado el número $numeroColocar usando el $numeroAncla como ancla.\n\n¿Deseas confirmar la jugada y avanzar de turno, o cancelar y corregir?',
-        ),
-        actions: [
-          // BOTÓN CANCELAR / DESHACER
-          TextButton.icon(
-            onPressed: () {
-              setState(() {
-                widget.tablero.celdas[fila][columna] =
-                    0; // Se revierte la jugada
-              });
-              Navigator.of(context).pop();
-            },
-            icon: const Icon(Icons.undo, color: Colors.red),
-            label: const Text(
-              'Deshacer',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-            ),
-          ),
-
-          // BOTÓN CONFIRMAR Y AVANZAR
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green.shade600,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () {
-              _confirmarJugada();
-            },
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Avanzar Turno'),
-          ),
-        ],
-      ),
-    );
   }
 
   Region _obtenerRegionCasilla(int fila, int columna) {
@@ -444,15 +401,21 @@ class _JuegoScreenState extends State<JuegoScreen> {
                         valor: dado1,
                         esAncla: anclaSeleccionada == 1,
                         onTap: () {
-                          setState(() => anclaSeleccionada = 1);
+                          if (_casillaJugada == null) {
+                            setState(() => anclaSeleccionada = 1);
+                          }
                         },
                       ),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            anclaSeleccionada = anclaSeleccionada == 1 ? 2 : 1;
-                          });
-                        },
+                        onPressed: _casillaJugada != null
+                            ? null
+                            : () {
+                                setState(() {
+                                  anclaSeleccionada = anclaSeleccionada == 1
+                                      ? 2
+                                      : 1;
+                                });
+                              },
                         icon: const Icon(Icons.swap_horiz, size: 20),
                         label: const Text('Cambiar Ancla'),
                         style: ElevatedButton.styleFrom(
@@ -468,7 +431,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
                         valor: dado2,
                         esAncla: anclaSeleccionada == 2,
                         onTap: () {
-                          setState(() => anclaSeleccionada = 2);
+                          if (_casillaJugada == null) {
+                            setState(() => anclaSeleccionada = 2);
+                          }
                         },
                       ),
                     ],
@@ -578,24 +543,67 @@ class _JuegoScreenState extends State<JuegoScreen> {
             ),
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: partidaFinalizada ? null : _confirmarSaltarTurno,
-                  icon: const Icon(Icons.skip_next),
-                  label: const Text(
-                    'SALTAR TURNO',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.orange.shade800,
-                    side: BorderSide(color: Colors.orange.shade400, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: _casillaJugada == null || partidaFinalizada
+                            ? null
+                            : _deshacerJugada,
+                        icon: const Icon(Icons.undo),
+                        label: const Text('Deshacer'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade700,
+                          side: BorderSide(
+                            color: Colors.red.shade300,
+                            width: 2,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SizedBox(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: partidaFinalizada
+                            ? null
+                            : _casillaJugada == null
+                            ? _confirmarSaltarTurno
+                            : _siguienteTurno,
+                        icon: Icon(
+                          _casillaJugada == null
+                              ? Icons.skip_next
+                              : Icons.arrow_forward,
+                        ),
+                        label: Text(
+                          _casillaJugada == null
+                              ? 'SALTAR TURNO'
+                              : 'AVANZAR TURNO',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _casillaJugada == null
+                              ? Colors.orange.shade700
+                              : Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
