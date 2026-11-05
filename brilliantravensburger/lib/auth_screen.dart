@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'inicio_screen.dart';
-
-// REEMPLAZA ESTA URL CON TU URL DE NGROK O RENDER
-const String baseUrl = 'http://192.168.137.1:3000/api'; 
+import 'app_config.dart';
+import 'lobby_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -16,87 +14,99 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   bool _isLogin = true;
   bool _isLoading = false;
   String? _token;
   String? _currentUser;
 
-Future<void> _submit() async {
-  setState(() => _isLoading = true);
-  final endpoint = _isLogin ? '/login' : '/register';
-  
-  try {
-    final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': _usernameController.text.trim(),
-        'password': _passwordController.text.trim(),
-      }),
-    );
+  Future<void> _submit() async {
+    setState(() => _isLoading = true);
+    final endpoint = _isLogin ? '/login' : '/register';
 
-    final data = jsonDecode(response.body);
-
-    // 👈 AQUÍ VA LA LÍNEA: evita usar 'context' si la pantalla se cerró durante la petición
-    if (!mounted) return;
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(data['message'], style: const TextStyle(color: Colors.white)), backgroundColor: Colors.green),
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': _usernameController.text.trim(),
+          'password': _passwordController.text.trim(),
+        }),
       );
-      
-      if (_isLogin) {
-        setState(() {
-          _token = data['token'];
-          _currentUser = _usernameController.text.trim();
-        });
+
+      final data = jsonDecode(response.body);
+
+      // 👈 AQUÍ VA LA LÍNEA: evita usar 'context' si la pantalla se cerró durante la petición
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              data['message'],
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        if (_isLogin) {
+          setState(() {
+            _token = data['token'];
+            _currentUser = _usernameController.text.trim();
+          });
+        } else {
+          setState(() => _isLogin = true);
+        }
       } else {
-        setState(() => _isLogin = true);
+        _mostrarError(data['error'] ?? 'Error desconocido');
       }
-    } else {
-      _mostrarError(data['error'] ?? 'Error desconocido');
+    } catch (e) {
+      _mostrarError('Error de conexión con el servidor');
+    } finally {
+      setState(() => _isLoading = false);
     }
-  } catch (e) {
-    _mostrarError('Error de conexión con el servidor');
-  } finally {
-    setState(() => _isLoading = false);
   }
-}
 
-Future<void> _deleteAccount() async {
-  if (_token == null) return;
-  setState(() => _isLoading = true);
+  Future<void> _deleteAccount() async {
+    if (_token == null) return;
+    setState(() => _isLoading = true);
 
-  try {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/delete-account'),
-      headers: {'Authorization': 'Bearer $_token'},
-    );
-
-    if (!mounted) return; // 👈 También va aquí antes de mostrar la SnackBar
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cuenta eliminada exitosamente'), backgroundColor: Colors.orange),
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/delete-account'),
+        headers: {'Authorization': 'Bearer $_token'},
       );
-      setState(() {
-        _token = null;
-        _currentUser = null;
-        _usernameController.clear();
-        _passwordController.clear();
-      });
+
+      if (!mounted) return; // 👈 También va aquí antes de mostrar la SnackBar
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cuenta eliminada exitosamente'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        setState(() {
+          _token = null;
+          _currentUser = null;
+          _usernameController.clear();
+          _passwordController.clear();
+        });
+      }
+    } catch (e) {
+      _mostrarError('Error al eliminar la cuenta');
+    } finally {
+      setState(() => _isLoading = false);
     }
-  } catch (e) {
-    _mostrarError('Error al eliminar la cuenta');
-  } finally {
-    setState(() => _isLoading = false);
   }
-}
 
   void _mostrarError(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensaje, style: const TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+      SnackBar(
+        content: Text(mensaje, style: const TextStyle(color: Colors.white)),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 
@@ -110,21 +120,36 @@ Future<void> _deleteAccount() async {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Bienvenido, $_currentUser!', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              Text(
+                'Bienvenido, $_currentUser!',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 30),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade600,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 15,
+                  ),
                 ),
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => const InicioScreen()),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          LobbyScreen(token: _token!, username: _currentUser!),
+                    ),
                   );
                 },
                 icon: const Icon(Icons.play_arrow),
-                label: const Text('JUGAR AHORA', style: TextStyle(fontSize: 18)),
+                label: const Text(
+                  'JUGAR AHORA',
+                  style: TextStyle(fontSize: 18),
+                ),
               ),
               const SizedBox(height: 20),
               TextButton.icon(
@@ -134,11 +159,19 @@ Future<void> _deleteAccount() async {
                     context: context,
                     builder: (context) => AlertDialog(
                       title: const Text('¿Borrar cuenta?'),
-                      content: const Text('Esta acción es irreversible y perderás tu progreso.'),
+                      content: const Text(
+                        'Esta acción es irreversible y perderás tu progreso.',
+                      ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancelar'),
+                        ),
                         ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
                           onPressed: () {
                             Navigator.pop(context);
                             _deleteAccount();
@@ -154,9 +187,15 @@ Future<void> _deleteAccount() async {
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: () => setState(() { _token = null; _currentUser = null; }),
-                child: const Text('Cerrar sesión', style: TextStyle(color: Colors.grey)),
-              )
+                onPressed: () => setState(() {
+                  _token = null;
+                  _currentUser = null;
+                }),
+                child: const Text(
+                  'Cerrar sesión',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
             ],
           ),
         ),
@@ -165,49 +204,71 @@ Future<void> _deleteAccount() async {
 
     // VISTA DE LOGIN / REGISTRO
     return Scaffold(
-appBar: AppBar(title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'), centerTitle: true),
-  body: SingleChildScrollView( // <--- Agregado para evitar desbordamiento
-    child: Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-            Icon(Icons.casino, size: 80, color: Colors.blue.shade700),
-            const SizedBox(height: 30),
-            TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(labelText: 'Usuario', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Contraseña', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
-            ),
-            const SizedBox(height: 24),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade700,
-                        foregroundColor: Colors.white,
+      appBar: AppBar(
+        title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'),
+        centerTitle: true,
+      ),
+      body: SingleChildScrollView(
+        // <--- Agregado para evitar desbordamiento
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.casino, size: 80, color: Colors.blue.shade700),
+              const SizedBox(height: 30),
+              TextField(
+                controller: _usernameController,
+                decoration: const InputDecoration(
+                  labelText: 'Usuario',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Contraseña',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _isLoading
+                  ? const CircularProgressIndicator()
+                  : SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: _submit,
+                        child: Text(
+                          _isLogin ? 'INGRESAR' : 'REGISTRARSE',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      onPressed: _submit,
-                      child: Text(_isLogin ? 'INGRESAR' : 'REGISTRARSE', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
-                  ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => setState(() => _isLogin = !_isLogin),
-              child: Text(_isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'),
-            ),
-          ],
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => setState(() => _isLogin = !_isLogin),
+                child: Text(
+                  _isLogin
+                      ? '¿No tienes cuenta? Regístrate'
+                      : '¿Ya tienes cuenta? Inicia sesión',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-     ),
     );
   }
 }
