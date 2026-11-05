@@ -1,15 +1,18 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
+import 'multiplayer_service.dart';
 
 class JuegoScreen extends StatefulWidget {
   final Tablero tablero;
   final int? tableroSeleccionado;
+  final MultiplayerService? multiplayer;
 
   const JuegoScreen({
     super.key,
     required this.tablero,
     this.tableroSeleccionado,
+    this.multiplayer,
   });
 
   @override
@@ -22,6 +25,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
   int anclaSeleccionada = 1;
   int turno = 1;
   bool partidaFinalizada = false;
+  bool _esperandoDadosCompartidos = false;
+  bool _dialogoFinalMostrado = false;
+  int _ultimoTurnoCompartido = 0;
   List<int>? _casillaJugada;
 
   final Random _random = Random();
@@ -30,13 +36,34 @@ class _JuegoScreenState extends State<JuegoScreen> {
   int get numeroColocar => anclaSeleccionada == 1 ? dado2 : dado1;
 
   List<List<int>> get posicionesValidas {
-    if (_casillaJugada != null) return [];
+    if (_casillaJugada != null ||
+        _esperandoDadosCompartidos ||
+        widget.multiplayer?.myTurnIsComplete == true ||
+        widget.multiplayer?.myBoardIsComplete == true) {
+      return [];
+    }
     return obtenerPosicionesValidas(widget.tablero, numeroAncla, numeroColocar);
   }
 
   @override
   void initState() {
     super.initState();
+    final service = widget.multiplayer;
+    if (service != null) {
+      service.addListener(_onMultiplayerUpdate);
+      final game = service.game;
+      if (game != null) {
+        dado1 = game.dice[0];
+        dado2 = game.dice[1];
+        turno = game.turn;
+        _ultimoTurnoCompartido = game.turn;
+        _esperandoDadosCompartidos =
+            game.completedPlayerIds.contains(service.playerId) ||
+            service.myBoardIsComplete;
+      }
+      return;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.tablero.estaCompleto) {
         _finalizarPartida();
@@ -44,6 +71,99 @@ class _JuegoScreenState extends State<JuegoScreen> {
         _lanzarDadosAutomatico();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    final service = widget.multiplayer;
+    if (service != null) {
+      service.removeListener(_onMultiplayerUpdate);
+      service.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onMultiplayerUpdate() {
+    final service = widget.multiplayer;
+    final game = service?.game;
+    if (!mounted || service == null || game == null) return;
+
+    final nuevoTurno = game.turn != _ultimoTurnoCompartido;
+    setState(() {
+      turno = game.turn;
+      dado1 = game.dice[0];
+      dado2 = game.dice[1];
+      partidaFinalizada = service.room?.status == 'finished';
+      if (nuevoTurno) {
+        _ultimoTurnoCompartido = game.turn;
+        _casillaJugada = null;
+        _esperandoDadosCompartidos = false;
+        anclaSeleccionada =
+            obtenerPosicionesValidas(widget.tablero, dado1, dado2).isNotEmpty
+            ? 1
+            : obtenerPosicionesValidas(widget.tablero, dado2, dado1).isNotEmpty
+            ? 2
+            : 1;
+      } else if (service.myTurnIsComplete || service.myBoardIsComplete) {
+        _esperandoDadosCompartidos = true;
+      }
+    });
+
+    if (partidaFinalizada && !_dialogoFinalMostrado) {
+      _dialogoFinalMostrado = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mostrarResultadoMultijugador();
+      });
+    } else if (nuevoTurno &&
+        !partidaFinalizada &&
+        !hayMovimientosPosibles(widget.tablero, dado1, dado2)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _mostrarAvisoSinMovimientos();
+      });
+    }
+  }
+
+  void _mostrarResultadoMultijugador() {
+    final service = widget.multiplayer!;
+    final room = service.room!;
+    MultiplayerPlayer? winner;
+    for (final player in room.players) {
+      if (player.id == service.game?.winnerId) {
+        winner = player;
+        break;
+      }
+    }
+    final ranking = [...room.players]
+      ..sort((left, right) => right.score.compareTo(left.score));
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¡Partida finalizada!'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              winner == null
+                  ? 'Ganador: ${ranking.first.username}'
+                  : 'Ganador: ${winner.username}',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 8),
+            for (final player in ranking)
+              Text('${player.username}: ${player.score} pts'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Ver tablero'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _lanzarDadosAutomatico() {
@@ -143,6 +263,12 @@ class _JuegoScreenState extends State<JuegoScreen> {
   void _siguienteTurno() {
     if (partidaFinalizada) return;
 
+    final service = widget.multiplayer;
+    if (service != null) {
+      _enviarTurnoMultijugador(service);
+      return;
+    }
+
     if (widget.tablero.estaCompleto) {
       _finalizarPartida();
       return;
@@ -155,10 +281,46 @@ class _JuegoScreenState extends State<JuegoScreen> {
     _lanzarDadosAutomatico();
   }
 
+  Future<void> _enviarTurnoMultijugador(MultiplayerService service) async {
+    if (_esperandoDadosCompartidos || service.myTurnIsComplete) return;
+
+    final claimedZones = <int>[];
+    final zoneClaims = service.game?.zoneClaims ?? const {};
+    for (var index = 0; index < widget.tablero.zonas.length; index++) {
+      final zone = widget.tablero.zonas[index];
+      final priorClaims = zoneClaims[index] ?? const [];
+      final alreadyClaimed = priorClaims.any(
+        (claim) => '${claim['playerId']}' == service.playerId,
+      );
+      if (!alreadyClaimed && zone.esValida(widget.tablero)) {
+        claimedZones.add(index);
+      }
+    }
+
+    setState(() => _esperandoDadosCompartidos = true);
+    try {
+      await service.completeTurn(
+        board: widget.tablero.celdas.expand((row) => row).toList(),
+        completedZones: claimedZones,
+        finished: widget.tablero.estaCompleto,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _esperandoDadosCompartidos = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo enviar el turno: $error'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
   void _deshacerJugada() {
     final casilla = _casillaJugada;
     if (casilla == null || partidaFinalizada) return;
 
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
     setState(() {
       widget.tablero.celdas[casilla[0]][casilla[1]] = 0;
       _casillaJugada = null;
@@ -329,7 +491,12 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int puntaje = widget.tablero.calcularPuntajeTotal();
+    final puntaje =
+        widget.multiplayer?.myScore ?? widget.tablero.calcularPuntajeTotal();
+    final esperandoJugadores =
+        _esperandoDadosCompartidos ||
+        widget.multiplayer?.myTurnIsComplete == true ||
+        widget.multiplayer?.myBoardIsComplete == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -380,8 +547,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
               ),
               child: Column(
                 children: [
-                  const Text(
-                    '🎲 Dados de la mesa (Lanzamiento Automático):',
+                  Text(
+                    widget.multiplayer == null
+                        ? '🎲 Dados de la mesa (Lanzamiento Automático):'
+                        : '🎲 Dados compartidos:',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -441,6 +610,32 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 ],
               ),
             ),
+            if (widget.multiplayer != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Chip(
+                      label: Text(
+                        'Meta: ${widget.multiplayer!.room?.targetPoints ?? 0} pts',
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    for (final player
+                        in widget.multiplayer!.room?.players ?? const [])
+                      Chip(
+                        label: Text('${player.username}: ${player.score}'),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -454,6 +649,17 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 ),
               ),
             ),
+            if (_casillaJugada != null)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  '¡Número Colocado!',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             const SizedBox(height: 8),
             Expanded(
               child: Padding(
@@ -574,18 +780,24 @@ class _JuegoScreenState extends State<JuegoScreen> {
                       child: ElevatedButton.icon(
                         onPressed: partidaFinalizada
                             ? null
+                            : esperandoJugadores
+                            ? null
                             : _casillaJugada == null
                             ? _confirmarSaltarTurno
                             : _siguienteTurno,
                         icon: Icon(
-                          _casillaJugada == null
+                          esperandoJugadores
+                              ? Icons.hourglass_top
+                              : _casillaJugada == null
                               ? Icons.skip_next
                               : Icons.arrow_forward,
                         ),
                         label: Text(
-                          _casillaJugada == null
+                          esperandoJugadores
+                              ? 'ESPERANDO A LOS JUGADORES'
+                              : _casillaJugada == null
                               ? 'SALTAR TURNO'
-                              : 'AVANZAR TURNO',
+                              : 'Avanzar Turno',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
