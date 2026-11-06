@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'brilliantravensburger.dart';
-import 'inicio_screen.dart';
 import 'juego_screen.dart';
 import 'multiplayer_service.dart';
 
 class LobbyScreen extends StatefulWidget {
-  const LobbyScreen({super.key, required this.token, required this.username});
+  const LobbyScreen({
+    super.key,
+    required this.token,
+    required this.username,
+    this.joinMode = false,
+  });
 
   final String token;
   final String username;
+  final bool joinMode;
 
   @override
   State<LobbyScreen> createState() => _LobbyScreenState();
@@ -118,7 +123,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lobby multijugador'),
+        title: Text(widget.joinMode ? 'Unirse a sala' : 'Crear sala'),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -143,92 +148,86 @@ class _LobbyScreenState extends State<LobbyScreen> {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Crea una sala o únete con un código. La partida comienza cuando la sala esté completa y todos estén listos.',
+        Text(
+          widget.joinMode
+              ? 'Ingresa el código de la sala para unirte a la partida.'
+              : 'Configura tu sala. La partida comienza cuando esté completa y todos estén listos.',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 24),
-        DropdownButtonFormField<int>(
-          key: ValueKey(_capacity),
-          initialValue: _capacity,
-          decoration: const InputDecoration(
-            labelText: 'Cantidad de jugadores',
-            border: OutlineInputBorder(),
+        if (!widget.joinMode) ...[
+          const SizedBox(height: 24),
+          DropdownButtonFormField<int>(
+            key: ValueKey(_capacity),
+            initialValue: _capacity,
+            decoration: const InputDecoration(
+              labelText: 'Cantidad de jugadores',
+              border: OutlineInputBorder(),
+            ),
+            items: List.generate(
+              5,
+              (index) => DropdownMenuItem(
+                value: index + 2,
+                child: Text('${index + 2} jugadores'),
+              ),
+            ),
+            onChanged: _loading
+                ? null
+                : (value) => setState(() => _capacity = value ?? 2),
           ),
-          items: List.generate(
-            5,
-            (index) => DropdownMenuItem(
-              value: index + 2,
-              child: Text('${index + 2} jugadores'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            key: ValueKey(_boardId),
+            initialValue: _boardId,
+            decoration: const InputDecoration(
+              labelText: 'Tablero compartido',
+              border: OutlineInputBorder(),
+            ),
+            items: List.generate(
+              4,
+              (index) => DropdownMenuItem(
+                value: index + 1,
+                child: Text('Tablero ${index + 1}'),
+              ),
+            ),
+            onChanged: _loading
+                ? null
+                : (value) => setState(() => _boardId = value ?? 1),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _loading ? null : _createRoom,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Crear sala'),
             ),
           ),
-          onChanged: _loading
-              ? null
-              : (value) => setState(() => _capacity = value ?? 2),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<int>(
-          key: ValueKey(_boardId),
-          initialValue: _boardId,
-          decoration: const InputDecoration(
-            labelText: 'Tablero compartido',
-            border: OutlineInputBorder(),
-          ),
-          items: List.generate(
-            4,
-            (index) => DropdownMenuItem(
-              value: index + 1,
-              child: Text('Tablero ${index + 1}'),
+        ] else ...[
+          const SizedBox(height: 24),
+          TextField(
+            controller: _codeController,
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              labelText: 'Código de sala',
+              hintText: 'Ej. A1B2C3',
+              border: OutlineInputBorder(),
+              counterText: '',
             ),
           ),
-          onChanged: _loading
-              ? null
-              : (value) => setState(() => _boardId = value ?? 1),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 50,
-          child: ElevatedButton.icon(
-            onPressed: _loading ? null : _createRoom,
-            icon: const Icon(Icons.add_circle_outline),
-            label: const Text('Crear sala'),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: _loading ? null : _joinRoom,
+              icon: const Icon(Icons.login),
+              label: const Text('Unirme a una sala'),
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        const Divider(),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _codeController,
-          textCapitalization: TextCapitalization.characters,
-          maxLength: 6,
-          decoration: const InputDecoration(
-            labelText: 'Código de sala',
-            hintText: 'Ej. A1B2C3',
-            border: OutlineInputBorder(),
-            counterText: '',
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 50,
-          child: OutlinedButton.icon(
-            onPressed: _loading ? null : _joinRoom,
-            icon: const Icon(Icons.login),
-            label: const Text('Unirme a una sala'),
-          ),
-        ),
+        ],
         const SizedBox(height: 12),
         if (_loading) const Center(child: CircularProgressIndicator()),
         if (_error != null) _errorMessage(_error!),
-        const SizedBox(height: 16),
-        TextButton(
-          onPressed: _loading
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const InicioScreen())),
-          child: const Text('Jugar sin conexión'),
-        ),
       ],
     );
   }
