@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
 import 'multiplayer_service.dart';
+import 'tablero_preview.dart';
 
 class LobbyScreen extends StatefulWidget {
   const LobbyScreen({
@@ -83,8 +84,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   void _onServiceUpdate() {
     final service = _service;
-    if (!mounted || service == null || _didNavigateToGame) return;
-    if (service.game == null || service.room?.status != 'playing') return;
+    if (!mounted || service == null) return;
+    if (_didNavigateToGame) return;
+    if (service.game == null || service.room?.status != 'playing') {
+      setState(() {});
+      return;
+    }
 
     _didNavigateToGame = true;
     final room = service.room!;
@@ -114,6 +119,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Future<void> _toggleReady(MultiplayerPlayer player) async {
     await _runRoomAction((service) => service.setReady(!player.ready));
+  }
+
+  Future<void> _changeBoard(MultiplayerService service, int boardId) async {
+    if (boardId == service.room?.boardId ||
+        service.playerId != service.room?.hostId) {
+      return;
+    }
+    final board = crearTablero(boardId);
+    final points = board.zonas.map((zone) => zone.bolsaPuntos).toList();
+    await _runRoomAction(
+      (service) => service.setBoard(
+        boardId: boardId,
+        zonePointValues: points,
+      ),
+    );
   }
 
   @override
@@ -266,6 +286,79 @@ class _LobbyScreenState extends State<LobbyScreen> {
         Text(
           'Tablero ${room.boardId} · ${room.capacity} jugadores · objetivo ${room.targetPoints} pts',
           textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          service.playerId == room.hostId
+              ? 'Elige el tablero para todos'
+              : 'Tablero elegido por el anfitrión',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 140,
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.1,
+            ),
+            itemCount: 4,
+            itemBuilder: (context, index) {
+              final boardId = index + 1;
+              final isSelected = room.boardId == boardId;
+              final canSelect =
+                  service.playerId == room.hostId &&
+                  room.status == 'waiting' &&
+                  !_loading;
+              return Card(
+                margin: EdgeInsets.zero,
+                color: isSelected ? Colors.blue.shade50 : null,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: isSelected ? Colors.blue : Colors.black12,
+                    width: isSelected ? 2 : 1,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: ValueKey('room-board-$boardId'),
+                  onTap: canSelect
+                      ? () => _changeBoard(service, boardId)
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        TableroPreview(boardId: boardId, size: 48),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            isSelected
+                                ? 'Tablero $boardId\nEn uso'
+                                : 'Tablero $boardId',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isSelected ? Colors.blue.shade900 : null,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle, color: Colors.blue),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
         const SizedBox(height: 20),
         Text(

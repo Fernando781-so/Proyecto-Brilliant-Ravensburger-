@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
+import 'tablero_preview.dart';
 
 class InicioScreen extends StatefulWidget {
   const InicioScreen({super.key});
@@ -507,7 +508,6 @@ class _InicioScreenState extends State<InicioScreen> {
             separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final numero = index + 1;
-              final tableroPrevia = crearTablero(numero);
               return SizedBox(
                 height: 144,
                 child: Card(
@@ -519,7 +519,11 @@ class _InicioScreenState extends State<InicioScreen> {
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
-                          _buildVistaPreviaTablero(numero, tableroPrevia),
+                          TableroPreview(
+                            key: ValueKey('vista-previa-tablero-$numero'),
+                            boardId: numero,
+                            size: 112,
+                          ),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -578,48 +582,6 @@ class _InicioScreenState extends State<InicioScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildVistaPreviaTablero(int numero, Tablero tableroPrevia) {
-    final posicionesIniciales = obtenerPosicionesInicialesTablero(numero);
-
-    return SizedBox(
-      key: ValueKey('vista-previa-tablero-$numero'),
-      width: 112,
-      height: 112,
-      child: GridView.builder(
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 7,
-          crossAxisSpacing: 1.5,
-          mainAxisSpacing: 1.5,
-        ),
-        itemCount: 49,
-        itemBuilder: (context, index) {
-          final fila = index ~/ 7;
-          final columna = index % 7;
-          final region = _obtenerRegionEnTablero(
-            tableroPrevia,
-            fila,
-            columna,
-          );
-          final esPosicionInicial = posicionesIniciales.any(
-            (posicion) => posicion[0] == fila && posicion[1] == columna,
-          );
-
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              color: _colorParaRegion(region),
-              border: Border.all(
-                color: esPosicionInicial ? Colors.black87 : Colors.black26,
-                width: esPosicionInicial ? 1.5 : 0.5,
-              ),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          );
-        },
-      ),
     );
   }
 

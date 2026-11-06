@@ -19,9 +19,12 @@ de la computadora que ejecuta el servidor; `localhost` solo funciona cuando el
 servidor y la app corren en el mismo dispositivo.
 
 El anfitrión elige entre 2 y 6 jugadores y uno de los cuatro diseños de tablero.
-La partida comienza cuando la sala está completa y todos marcan «Estoy listo».
-Todos juegan con el mismo diseño y los mismos dados compartidos, pero cada uno
-tiene su propio tablero y puntaje. Cada jugador completa un movimiento por ronda.
+Mientras la sala espera, todos pueden ver el diseño seleccionado y el anfitrión
+puede cambiarlo para todos. Si lo cambia, todos deben volver a marcar
+«Estoy listo». La partida comienza cuando la sala está completa y todos están
+listos. Todos juegan con el mismo diseño y los mismos dados compartidos, pero
+cada uno tiene su propio tablero y puntaje. Cada jugador completa un movimiento
+por ronda.
 
 Las zonas otorgan los puntos de su bolsa por orden de conquista: primero el
 valor mayor, después el siguiente y, una vez agotada la bolsa, se conserva el
