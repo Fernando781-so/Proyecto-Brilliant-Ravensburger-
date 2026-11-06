@@ -295,6 +295,17 @@ class MultiplayerService extends ChangeNotifier {
     _setRoom(Map<String, dynamic>.from(result['room'] as Map));
   }
 
+  Future<void> setBoard({
+    required int boardId,
+    required List<List<int>> zonePointValues,
+  }) async {
+    final result = await _request('lobby:board', {
+      'boardId': boardId,
+      'zonePointValues': zonePointValues,
+    });
+    _setRoom(Map<String, dynamic>.from(result['room'] as Map));
+  }
+
   Future<void> completeTurn({
     required List<int> board,
     required List<int> completedZones,
