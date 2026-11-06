@@ -17,8 +17,16 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
   String? _token;
   String? _currentUser;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     setState(() => _isLoading = true);
@@ -92,6 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
           _currentUser = null;
           _usernameController.clear();
           _passwordController.clear();
+          _isPasswordVisible = false;
         });
       }
     } catch (e) {
@@ -190,6 +199,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 onPressed: () => setState(() {
                   _token = null;
                   _currentUser = null;
+                  _usernameController.clear();
+                  _passwordController.clear();
+                  _isPasswordVisible = false;
                 }),
                 child: const Text(
                   'Cerrar sesión',
@@ -228,12 +240,27 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Contraseña',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
+                obscureText: !_isPasswordVisible,
+                decoration:
+                    const InputDecoration(
+                      labelText: 'Contraseña',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock),
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        tooltip: _isPasswordVisible
+                            ? 'Ocultar contraseña'
+                            : 'Mostrar contraseña',
+                        onPressed: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        ),
+                        icon: Icon(
+                          _isPasswordVisible
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                      ),
+                    ),
               ),
               const SizedBox(height: 24),
               _isLoading

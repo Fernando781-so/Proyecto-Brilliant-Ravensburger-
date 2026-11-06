@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:brilliantravensburger/main.dart' as app;
@@ -22,5 +23,24 @@ void main() {
 
     expect(find.text('Crear Cuenta'), findsOneWidget);
     expect(find.text('REGISTRARSE'), findsOneWidget);
+  });
+
+  testWidgets('password visibility can be toggled', (tester) async {
+    app.main();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).obscureText,
+      isTrue,
+    );
+
+    await tester.tap(find.byTooltip('Mostrar contraseña'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).last).obscureText,
+      isFalse,
+    );
+    expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
   });
 }
