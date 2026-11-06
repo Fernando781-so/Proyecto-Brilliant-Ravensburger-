@@ -38,6 +38,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
   List<List<int>> get posicionesValidas {
     if (_casillaJugada != null ||
         _esperandoDadosCompartidos ||
+        widget.multiplayer?.canPlay == false ||
         widget.multiplayer?.myTurnIsComplete == true ||
         widget.multiplayer?.myBoardIsComplete == true) {
       return [];
@@ -265,6 +266,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
     final service = widget.multiplayer;
     if (service != null) {
+      if (!service.canPlay) return;
       _enviarTurnoMultijugador(service);
       return;
     }
@@ -282,7 +284,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
   }
 
   Future<void> _enviarTurnoMultijugador(MultiplayerService service) async {
-    if (_esperandoDadosCompartidos || service.myTurnIsComplete) return;
+    if (!service.canPlay ||
+        _esperandoDadosCompartidos ||
+        service.myTurnIsComplete) {
+      return;
+    }
 
     final claimedZones = <int>[];
     final zoneClaims = service.game?.zoneClaims ?? const {};
@@ -318,7 +324,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   void _deshacerJugada() {
     final casilla = _casillaJugada;
-    if (casilla == null || partidaFinalizada) return;
+    if (casilla == null ||
+        partidaFinalizada ||
+        widget.multiplayer?.canPlay == false) {
+      return;
+    }
 
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     setState(() {
@@ -396,6 +406,182 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
+  Widget _buildMultiplayerScoreboard(MultiplayerService service) {
+    final room = service.room;
+    if (room == null) return const SizedBox.shrink();
+
+    final players = [...room.players]
+      ..sort((left, right) {
+        final scoreComparison = right.score.compareTo(left.score);
+        return scoreComparison != 0
+            ? scoreComparison
+            : left.username.compareTo(right.username);
+      });
+    final highestScore = players.isEmpty ? 0 : players.first.score;
+    final leaders = players
+        .where((player) => player.score == highestScore)
+        .toList();
+    final connectedCount = players.where((player) => player.connected).length;
+    final leaderLabel = highestScore == 0
+        ? 'Aún sin puntos'
+        : leaders.length == 1
+        ? 'Lidera: ${leaders.first.username}'
+        : 'Empate: ${leaders.map((player) => player.username).join(', ')}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: 6,
+        runSpacing: 2,
+        children: [
+          Chip(
+            avatar: const Icon(Icons.groups_outlined, size: 16),
+            label: Text('En línea: $connectedCount/${players.length}'),
+            visualDensity: VisualDensity.compact,
+          ),
+          Chip(
+            avatar: const Icon(Icons.flag_outlined, size: 16),
+            label: Text('Meta: ${room.targetPoints} pts'),
+            visualDensity: VisualDensity.compact,
+          ),
+          Chip(
+            avatar: Icon(
+              leaders.length > 1
+                  ? Icons.emoji_events_outlined
+                  : Icons.emoji_events,
+              size: 16,
+              color: Colors.amber.shade900,
+            ),
+            label: Text(leaderLabel),
+            backgroundColor: Colors.amber.shade100,
+            visualDensity: VisualDensity.compact,
+          ),
+          for (var index = 0; index < players.length; index++)
+            Builder(
+              builder: (context) {
+                final player = players[index];
+                final isLeader =
+                    highestScore > 0 && player.score == highestScore;
+                return Tooltip(
+                  message: player.connected ? 'Conectado' : 'Desconectado',
+                  child: Chip(
+                    avatar: Icon(
+                      player.connected ? Icons.person : Icons.wifi_off,
+                      size: 16,
+                      color: player.connected
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                    label: Text(
+                      '${index + 1}. ${player.username}: ${player.score} pts',
+                    ),
+                    backgroundColor: isLeader ? Colors.amber.shade100 : null,
+                    side: isLeader
+                        ? BorderSide(color: Colors.amber.shade800, width: 1.5)
+                        : null,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoneClaims(MultiplayerService service) {
+    final claimsByZone = service.game?.zoneClaims ?? const {};
+    final claimedZones =
+        claimsByZone.entries
+            .where(
+              (entry) =>
+                  entry.value.isNotEmpty &&
+                  entry.key >= 0 &&
+                  entry.key < widget.tablero.zonas.length,
+            )
+            .toList()
+          ..sort((left, right) => left.key.compareTo(right.key));
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        visualDensity: VisualDensity.compact,
+        leading: const Icon(Icons.workspace_premium_outlined),
+        title: Text('Zonas capturadas: ${claimedZones.length}'),
+        subtitle: Text('Primero: alto · segundo: intermedio · resto: bajo'),
+        children: [
+          if (claimedZones.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Todavía no se ha capturado ninguna zona.'),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: claimedZones.length,
+                separatorBuilder: (context, index) => const Divider(height: 8),
+                itemBuilder: (context, zoneIndex) {
+                  final entry = claimedZones[zoneIndex];
+                  final zone = widget.tablero.zonas[entry.key];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Zona ${entry.key + 1} · ${_nombreRegion(zone.region)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      for (
+                        var claimIndex = 0;
+                        claimIndex < entry.value.length;
+                        claimIndex++
+                      )
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 42,
+                                child: Text(
+                                  claimIndex == 0
+                                      ? '1.º'
+                                      : claimIndex == 1
+                                      ? '2.º'
+                                      : '3.º+',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '${entry.value[claimIndex]['username'] ?? 'Jugador'}',
+                                ),
+                              ),
+                              Text(
+                                '+${(entry.value[claimIndex]['points'] as num?)?.toInt() ?? 0} pts',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   String _mensajeCasilla(int fila, int columna, bool esValida) {
     if (esValida) {
       return 'Puedes colocar el número $numeroColocar aquí.';
@@ -466,7 +652,11 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   // Al seleccionar una casilla del tablero
   void _alTocarCasilla(int fila, int columna) {
-    if (partidaFinalizada || _casillaJugada != null) return;
+    if (partidaFinalizada ||
+        _casillaJugada != null ||
+        widget.multiplayer?.canPlay == false) {
+      return;
+    }
 
     bool esValida = posicionesValidas.any(
       (p) => p[0] == fila && p[1] == columna,
@@ -493,10 +683,12 @@ class _JuegoScreenState extends State<JuegoScreen> {
   Widget build(BuildContext context) {
     final puntaje =
         widget.multiplayer?.myScore ?? widget.tablero.calcularPuntajeTotal();
+    final service = widget.multiplayer;
+    final esperandoConexion = service != null && !service.canPlay;
     final esperandoJugadores =
         _esperandoDadosCompartidos ||
-        widget.multiplayer?.myTurnIsComplete == true ||
-        widget.multiplayer?.myBoardIsComplete == true;
+        service?.myTurnIsComplete == true ||
+        service?.myBoardIsComplete == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -536,6 +728,47 @@ class _JuegoScreenState extends State<JuegoScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            if (esperandoConexion)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  border: Border.all(color: Colors.orange.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      service.isConnected ? Icons.sync : Icons.wifi_off,
+                      color: Colors.orange.shade900,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        service.lastError == null
+                            ? service.isConnected
+                                  ? 'Conexión recuperada. Sincronizando la partida; tus puntos y turnos se conservan.'
+                                  : 'Sin conexión. Reconectando; tus puntos y turnos se conservan.'
+                            : 'No se pudo sincronizar la partida: ${service.lastError}',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (service.lastError != null)
+                      TextButton.icon(
+                        onPressed: service.isConnected
+                            ? service.retryRoomRestore
+                            : null,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Reintentar'),
+                      ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 8),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -570,13 +803,15 @@ class _JuegoScreenState extends State<JuegoScreen> {
                         valor: dado1,
                         esAncla: anclaSeleccionada == 1,
                         onTap: () {
-                          if (_casillaJugada == null) {
+                          if (service?.canPlay != false &&
+                              _casillaJugada == null) {
                             setState(() => anclaSeleccionada = 1);
                           }
                         },
                       ),
                       ElevatedButton.icon(
-                        onPressed: _casillaJugada != null
+                        onPressed:
+                            service?.canPlay == false || _casillaJugada != null
                             ? null
                             : () {
                                 setState(() {
@@ -600,7 +835,8 @@ class _JuegoScreenState extends State<JuegoScreen> {
                         valor: dado2,
                         esAncla: anclaSeleccionada == 2,
                         onTap: () {
-                          if (_casillaJugada == null) {
+                          if (service?.canPlay != false &&
+                              _casillaJugada == null) {
                             setState(() => anclaSeleccionada = 2);
                           }
                         },
@@ -611,31 +847,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
               ),
             ),
             if (widget.multiplayer != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    Chip(
-                      label: Text(
-                        'Meta: ${widget.multiplayer!.room?.targetPoints ?? 0} pts',
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    for (final player
-                        in widget.multiplayer!.room?.players ?? const [])
-                      Chip(
-                        label: Text('${player.username}: ${player.score}'),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                  ],
-                ),
-              ),
+              _buildMultiplayerScoreboard(widget.multiplayer!),
+            if (widget.multiplayer != null)
+              _buildZoneClaims(widget.multiplayer!),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -755,7 +969,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
                     child: SizedBox(
                       height: 50,
                       child: OutlinedButton.icon(
-                        onPressed: _casillaJugada == null || partidaFinalizada
+                        onPressed:
+                            _casillaJugada == null ||
+                                partidaFinalizada ||
+                                service?.canPlay == false
                             ? null
                             : _deshacerJugada,
                         icon: const Icon(Icons.undo),
@@ -780,6 +997,8 @@ class _JuegoScreenState extends State<JuegoScreen> {
                       child: ElevatedButton.icon(
                         onPressed: partidaFinalizada
                             ? null
+                            : esperandoConexion
+                            ? null
                             : esperandoJugadores
                             ? null
                             : _casillaJugada == null
@@ -793,7 +1012,9 @@ class _JuegoScreenState extends State<JuegoScreen> {
                               : Icons.arrow_forward,
                         ),
                         label: Text(
-                          esperandoJugadores
+                          esperandoConexion
+                              ? 'RECONECTANDO...'
+                              : esperandoJugadores
                               ? 'ESPERANDO A LOS JUGADORES'
                               : _casillaJugada == null
                               ? 'SALTAR TURNO'

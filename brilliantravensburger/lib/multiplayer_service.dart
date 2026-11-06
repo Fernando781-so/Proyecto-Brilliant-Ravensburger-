@@ -122,8 +122,12 @@ class MultiplayerService extends ChangeNotifier {
   String? playerId;
   String? lastError;
   List<int>? _myBoard;
+  bool _isRestoringRoom = false;
+  bool _roomRestored = true;
+  bool _awaitingGameSnapshot = false;
 
   bool get isConnected => _socket.connected;
+  bool get canPlay => isConnected && !_isRestoringRoom && _roomRestored;
 
   int get myScore {
     for (final player in room?.players ?? const <MultiplayerPlayer>[]) {
@@ -151,6 +155,7 @@ class MultiplayerService extends ChangeNotifier {
     final socket = socket_io.io(uri.toString(), <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
+      'reconnection': true,
       'auth': {'token': token},
     });
     final service = MultiplayerService._(socket);
@@ -163,6 +168,15 @@ class MultiplayerService extends ChangeNotifier {
       } else if (service.room != null) {
         unawaited(service._restoreRoom());
       }
+      service.notifyListeners();
+    });
+    socket.onDisconnect((_) {
+      if (service.room != null) {
+        service._roomRestored = false;
+        service._awaitingGameSnapshot = service.room?.status == 'playing';
+      }
+      service.lastError = null;
+      service.notifyListeners();
     });
     socket.onConnectError((error) {
       if (!connected.isCompleted) {
@@ -214,6 +228,8 @@ class MultiplayerService extends ChangeNotifier {
       final board = json['ownBoard'] as List<dynamic>?;
       _myBoard = board?.map((value) => (value as num).toInt()).toList();
     }
+    _roomRestored = true;
+    _awaitingGameSnapshot = false;
     lastError = null;
     notifyListeners();
   }
@@ -222,6 +238,10 @@ class MultiplayerService extends ChangeNotifier {
     String event,
     Map<String, dynamic> payload,
   ) async {
+    if (!_socket.connected) {
+      throw Exception('Sin conexión con el servidor. Espera la reconexión.');
+    }
+
     final completer = Completer<Map<String, dynamic>>();
     _socket.emitWithAck(
       event,
@@ -267,14 +287,24 @@ class MultiplayerService extends ChangeNotifier {
 
   Future<void> _restoreRoom() async {
     final code = room?.code;
-    if (code == null) return;
+    if (code == null || _isRestoringRoom || !_socket.connected) return;
+    _isRestoringRoom = true;
+    _roomRestored = false;
+    _awaitingGameSnapshot = room?.status == 'playing';
+    lastError = null;
+    notifyListeners();
     try {
       await joinRoom(code);
     } catch (error) {
       lastError = error.toString().replaceFirst('Exception: ', '');
+      _roomRestored = false;
+    } finally {
+      _isRestoringRoom = false;
       notifyListeners();
     }
   }
+
+  Future<void> retryRoomRestore() => _restoreRoom();
 
   void _acceptRoomResult(Map<String, dynamic> result) {
     final nextRoom = MultiplayerRoom.fromJson(
@@ -286,6 +316,10 @@ class MultiplayerService extends ChangeNotifier {
     }
     playerId = '${result['playerId']}';
     room = nextRoom;
+    _roomRestored =
+        !_isRestoringRoom ||
+        nextRoom.status != 'playing' ||
+        !_awaitingGameSnapshot;
     lastError = null;
     notifyListeners();
   }
