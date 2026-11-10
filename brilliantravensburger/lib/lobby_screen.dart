@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'brilliantravensburger.dart';
-import 'juego_screen.dart';
+import 'inicio_screen.dart';
 import 'multiplayer_service.dart';
 import 'tablero_preview.dart';
 
@@ -93,26 +92,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     _didNavigateToGame = true;
     final room = service.room!;
-    final board = crearTablero(room.boardId);
-    final previousBoard = service.myBoard;
-    if (previousBoard != null && previousBoard.length == 49) {
-      for (var index = 0; index < previousBoard.length; index++) {
-        board.celdas[index ~/ 7][index % 7] = previousBoard[index];
-      }
-    } else {
-      final positions = obtenerPosicionesInicialesTablero(room.boardId);
-      for (var index = 0; index < positions.length; index++) {
-        board.celdas[positions[index][0]][positions[index][1]] = index + 1;
-      }
-    }
-
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => JuegoScreen(
-          tablero: board,
-          tableroSeleccionado: room.boardId,
-          multiplayer: service,
-        ),
+        builder: (_) =>
+            InicioScreen(tableroInicial: room.boardId, multiplayer: service),
       ),
     );
   }
