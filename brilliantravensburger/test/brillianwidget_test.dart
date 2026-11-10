@@ -149,6 +149,29 @@ void main() {
     expect(find.text('Selecciona o mueve un número'), findsNothing);
   });
 
+  testWidgets('abre la configuración con el tablero indicado y luego inicia', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    await tester.pumpWidget(
+      const MaterialApp(home: InicioScreen(tableroInicial: 2)),
+    );
+
+    expect(find.text('Brilliant - Posiciones Iniciales'), findsOneWidget);
+    expect(find.text('Tablero 2'), findsOneWidget);
+    expect(find.text('Elige un tablero'), findsNothing);
+    expect(find.text('+'), findsNWidgets(6));
+
+    for (var numero = 1; numero <= 6; numero++) {
+      await _colocarNumero(tester, numero);
+    }
+
+    await tester.tap(find.text('¡LISTO! AVANZAR'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Brilliant - Tablero 2 - Turno 1'), findsOneWidget);
+  });
+
   testWidgets('habilita el avance cuando se colocan los seis números', (
     tester,
   ) async {

@@ -37,6 +37,7 @@ void main() {
       expect(player.connected, isFalse);
       expect(player.score, 27);
       expect(player.finished, isTrue);
+      expect(player.setupComplete, isFalse);
     });
 
     test('usa valores iniciales cuando el estado de juego está vacío', () {
@@ -53,6 +54,8 @@ void main() {
       final game = MultiplayerGameState.fromJson({
         'turn': 8,
         'dice': [3, 6],
+        'phase': 'setup',
+        'setupCompletePlayerIds': ['player-1', 'player-2'],
         'completedPlayerIds': ['player-1', 'player-2', 'player-1'],
         'zoneClaims': {
           '1': [
@@ -68,6 +71,8 @@ void main() {
 
       expect(game.turn, 8);
       expect(game.dice, [3, 6]);
+      expect(game.phase, 'setup');
+      expect(game.setupCompletePlayerIds, {'player-1', 'player-2'});
       expect(game.completedPlayerIds, {'player-1', 'player-2'});
       expect(game.zoneClaims.keys, containsAll([1, 4]));
       expect(game.zoneClaims[1], [
@@ -79,6 +84,61 @@ void main() {
   });
 
   group('Partidas multijugador por cantidad de jugadores', () {
+    test('muestra si todos confirmaron sus números iniciales', () {
+      MultiplayerRoom roomWithOneReady = MultiplayerRoom.fromJson({
+        'code': 'ROOM01',
+        'hostId': 'player-1',
+        'capacity': 2,
+        'boardId': 1,
+        'targetPoints': 26,
+        'status': 'playing',
+        'players': [
+          {
+            'id': 'player-1',
+            'username': 'Ana',
+            'connected': true,
+            'setupComplete': true,
+          },
+          {
+            'id': 'player-2',
+            'username': 'Luis',
+            'connected': false,
+            'setupComplete': false,
+          },
+        ],
+      });
+
+      expect(roomWithOneReady.setupCompleteCount, 1);
+      expect(roomWithOneReady.allPlayersSetupComplete, isFalse);
+      expect(roomWithOneReady.players.last.connected, isFalse);
+
+      final roomWithEveryoneReady = MultiplayerRoom.fromJson({
+        'code': 'ROOM01',
+        'hostId': 'player-1',
+        'capacity': 2,
+        'boardId': 1,
+        'targetPoints': 26,
+        'status': 'playing',
+        'players': [
+          {
+            'id': 'player-1',
+            'username': 'Ana',
+            'connected': true,
+            'setupComplete': true,
+          },
+          {
+            'id': 'player-2',
+            'username': 'Luis',
+            'connected': true,
+            'setupComplete': true,
+          },
+        ],
+      });
+
+      expect(roomWithEveryoneReady.setupCompleteCount, 2);
+      expect(roomWithEveryoneReady.allPlayersSetupComplete, isTrue);
+    });
+
     for (final capacity in [2, 3, 4, 5, 6]) {
       test('carga la sala y el estado de juego con $capacity jugadores', () {
         final players = List.generate(

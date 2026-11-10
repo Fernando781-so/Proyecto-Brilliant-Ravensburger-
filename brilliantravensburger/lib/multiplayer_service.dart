@@ -13,6 +13,7 @@ class MultiplayerPlayer {
     required this.connected,
     required this.score,
     required this.finished,
+    required this.setupComplete,
   });
 
   final String id;
@@ -21,6 +22,7 @@ class MultiplayerPlayer {
   final bool connected;
   final int score;
   final bool finished;
+  final bool setupComplete;
 
   factory MultiplayerPlayer.fromJson(Map<String, dynamic> json) {
     return MultiplayerPlayer(
@@ -30,6 +32,7 @@ class MultiplayerPlayer {
       connected: json['connected'] != false,
       score: (json['score'] as num?)?.toInt() ?? 0,
       finished: json['finished'] == true,
+      setupComplete: json['setupComplete'] == true,
     );
   }
 }
@@ -52,6 +55,12 @@ class MultiplayerRoom {
   final int targetPoints;
   final String status;
   final List<MultiplayerPlayer> players;
+
+  int get setupCompleteCount =>
+      players.where((player) => player.setupComplete).length;
+
+  bool get allPlayersSetupComplete =>
+      players.isNotEmpty && players.every((player) => player.setupComplete);
 
   factory MultiplayerRoom.fromJson(Map<String, dynamic> json) {
     return MultiplayerRoom(
@@ -76,6 +85,8 @@ class MultiplayerGameState {
   const MultiplayerGameState({
     required this.turn,
     required this.dice,
+    required this.phase,
+    required this.setupCompletePlayerIds,
     required this.completedPlayerIds,
     required this.zoneClaims,
     required this.winnerId,
@@ -83,6 +94,8 @@ class MultiplayerGameState {
 
   final int turn;
   final List<int> dice;
+  final String phase;
+  final Set<String> setupCompletePlayerIds;
   final Set<String> completedPlayerIds;
   final Map<int, List<Map<String, dynamic>>> zoneClaims;
   final String? winnerId;
@@ -103,6 +116,11 @@ class MultiplayerGameState {
       dice: (json['dice'] as List<dynamic>? ?? const [1, 1])
           .map((value) => (value as num).toInt())
           .toList(),
+      phase: '${json['phase'] ?? 'setup'}',
+      setupCompletePlayerIds:
+          (json['setupCompletePlayerIds'] as List<dynamic>? ?? const [])
+              .map((id) => '$id')
+              .toSet(),
       completedPlayerIds:
           (json['completedPlayerIds'] as List<dynamic>? ?? const [])
               .map((id) => '$id')
@@ -138,6 +156,9 @@ class MultiplayerService extends ChangeNotifier {
 
   bool get myTurnIsComplete =>
       game?.completedPlayerIds.contains(playerId) ?? false;
+
+  bool get mySetupIsComplete =>
+      game?.setupCompletePlayerIds.contains(playerId) ?? false;
 
   bool get myBoardIsComplete {
     for (final player in room?.players ?? const <MultiplayerPlayer>[]) {
@@ -351,6 +372,11 @@ class MultiplayerService extends ChangeNotifier {
       'completedZones': completedZones,
       'finished': finished,
     });
+    _setGameSnapshot(Map<String, dynamic>.from(result['state'] as Map));
+  }
+
+  Future<void> completeInitialSetup({required List<int> board}) async {
+    final result = await _request('game:setup-complete', {'board': board});
     _setGameSnapshot(Map<String, dynamic>.from(result['state'] as Map));
   }
 

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
+import 'multiplayer_service.dart';
 import 'tablero_preview.dart';
 
 class InicioScreen extends StatefulWidget {
-  const InicioScreen({super.key});
+  const InicioScreen({super.key, this.tableroInicial, this.multiplayer});
+
+  final int? tableroInicial;
+  final MultiplayerService? multiplayer;
 
   @override
   State<InicioScreen> createState() => _InicioScreenState();
@@ -16,14 +20,137 @@ class _InicioScreenState extends State<InicioScreen> {
 
   int? _tableroSeleccionado;
   List<int>? _posicionExplosion;
+  bool _enviandoConfiguracion = false;
+  bool _navegandoAlJuego = false;
 
   @override
   void initState() {
     super.initState();
-    tablero = crearTablero(1);
+    final tableroId = widget.tableroInicial ?? 1;
+    tablero = crearTablero(tableroId);
     bloc = InicioBloc(
       tablero: tablero,
-      posicionesIniciales: obtenerPosicionesInicialesTablero(1),
+      posicionesIniciales: obtenerPosicionesInicialesTablero(tableroId),
+    );
+    _tableroSeleccionado = widget.tableroInicial;
+
+    final service = widget.multiplayer;
+    if (service != null) {
+      final savedBoard = service.myBoard;
+      if (savedBoard != null && savedBoard.length == 49) {
+        for (var index = 0; index < savedBoard.length; index++) {
+          tablero.celdas[index ~/ 7][index % 7] = savedBoard[index];
+        }
+      }
+      service.addListener(_onMultiplayerUpdate);
+      if (service.game?.phase == 'playing') {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _abrirJuego());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.multiplayer?.removeListener(_onMultiplayerUpdate);
+    super.dispose();
+  }
+
+  bool get _miConfiguracionCompletada =>
+      widget.multiplayer?.mySetupIsComplete ?? false;
+
+  void _onMultiplayerUpdate() {
+    if (!mounted) return;
+    if (widget.multiplayer?.game?.phase == 'playing') {
+      _abrirJuego();
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _abrirJuego() {
+    if (!mounted || _navegandoAlJuego) return;
+    _navegandoAlJuego = true;
+    final service = widget.multiplayer;
+    if (service != null) {
+      final savedBoard = service.myBoard;
+      if (savedBoard != null && savedBoard.length == 49) {
+        for (var index = 0; index < savedBoard.length; index++) {
+          tablero.celdas[index ~/ 7][index % 7] = savedBoard[index];
+        }
+      }
+    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => JuegoScreen(
+          tablero: tablero,
+          tableroSeleccionado: _tableroSeleccionado,
+          multiplayer: service,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmarConfiguracionInicial() async {
+    final service = widget.multiplayer;
+    if (service == null ||
+        !bloc.puedeAvanzar ||
+        _miConfiguracionCompletada ||
+        !service.canPlay ||
+        _enviandoConfiguracion) {
+      return;
+    }
+
+    setState(() => _enviandoConfiguracion = true);
+    try {
+      await service.completeInitialSetup(
+        board: tablero.celdas.expand((row) => row).toList(),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo confirmar el tablero: $error'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _enviandoConfiguracion = false);
+    }
+  }
+
+  Widget _buildMultiplayerSetupStatus() {
+    final service = widget.multiplayer!;
+    final room = service.room;
+    final players = room?.players ?? const <MultiplayerPlayer>[];
+    final readyCount = room?.setupCompleteCount ?? 0;
+    final disconnected = players
+        .where((player) => !player.connected)
+        .map((player) => player.username)
+        .toList();
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            Text(
+              'Jugadores listos para jugar: $readyCount/${players.length}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            if (_miConfiguracionCompletada)
+              const Text('Tu tablero está listo; espera a los demás.')
+            else if (disconnected.isNotEmpty)
+              Text(
+                'Esperando que se reconecte${disconnected.length == 1 ? '' : 'n'}: ${disconnected.join(', ')}',
+                textAlign: TextAlign.center,
+              ),
+            if (!service.canPlay)
+              const Text('Sin conexión. Reconectando; tu tablero se conserva.'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -41,6 +168,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   void _alTocarCasilla(int fila, int columna) {
+    if (_miConfiguracionCompletada) return;
     if (!bloc.esPosicionInicial(fila, columna)) {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,15 +431,17 @@ class _InicioScreenState extends State<InicioScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _tableroSeleccionado = null;
-                            for (final fila in tablero.celdas) {
-                              fila.fillRange(0, fila.length, 0);
-                            }
-                            _posicionExplosion = null;
-                          });
-                        },
+                        onPressed: widget.multiplayer == null
+                            ? () {
+                                setState(() {
+                                  _tableroSeleccionado = null;
+                                  for (final fila in tablero.celdas) {
+                                    fila.fillRange(0, fila.length, 0);
+                                  }
+                                  _posicionExplosion = null;
+                                });
+                              }
+                            : null,
                         icon: const Icon(Icons.swap_horiz, size: 18),
                         label: const Text('Cambiar tablero'),
                       ),
@@ -320,7 +450,9 @@ class _InicioScreenState extends State<InicioScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
-                      listo
+                      _miConfiguracionCompletada
+                          ? 'Tu tablero está listo. Esperando a los demás jugadores.'
+                          : listo
                           ? '¡Todos los números colocados! Ya puedes iniciar.'
                           : 'Toca las casillas marcadas con borde grueso (+)',
                       textAlign: TextAlign.center,
@@ -332,6 +464,10 @@ class _InicioScreenState extends State<InicioScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  if (widget.multiplayer != null) ...[
+                    _buildMultiplayerSetupStatus(),
+                    const SizedBox(height: 8),
+                  ],
                   // TABLERO CENTRADO (EXPANDED CON ASPECT RATIO 1.0 IGUAL A JUEGO_SCREEN)
                   Expanded(
                     child: Padding(
@@ -432,26 +568,41 @@ class _InicioScreenState extends State<InicioScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton.icon(
-                        onPressed: listo
+                        onPressed:
+                            listo &&
+                                !_miConfiguracionCompletada &&
+                                !_enviandoConfiguracion &&
+                                (widget.multiplayer?.canPlay ?? true)
                             ? () {
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) => JuegoScreen(
-                                      tablero: tablero,
-                                      tableroSeleccionado: _tableroSeleccionado,
-                                    ),
-                                  ),
-                                );
+                                final service = widget.multiplayer;
+                                if (service == null) {
+                                  _abrirJuego();
+                                } else {
+                                  _confirmarConfiguracionInicial();
+                                }
                               }
                             : null,
                         icon: Icon(
-                          listo
+                          _miConfiguracionCompletada || _enviandoConfiguracion
+                              ? Icons.hourglass_top
+                              : listo
                               ? Icons.check_circle_outline
                               : Icons.lock_outline,
                           size: 24,
                         ),
                         label: Text(
-                          listo ? '¡LISTO! AVANZAR' : 'COLOCA LOS 6 NÚMEROS',
+                          widget.multiplayer != null &&
+                                  !widget.multiplayer!.canPlay
+                              ? 'ESPERANDO CONEXIÓN'
+                              : _miConfiguracionCompletada
+                              ? 'ESPERANDO A LOS DEMÁS'
+                              : _enviandoConfiguracion
+                              ? 'ENVIANDO TABLERO...'
+                              : listo
+                              ? widget.multiplayer == null
+                                    ? '¡LISTO! AVANZAR'
+                                    : 'LISTO, ESPERAR JUGADORES'
+                              : 'COLOCA LOS 6 NÚMEROS',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
