@@ -61,6 +61,13 @@ class _JuegoScreenState extends State<JuegoScreen> {
         _esperandoDadosCompartidos =
             game.completedPlayerIds.contains(service.playerId) ||
             service.myBoardIsComplete;
+        if (service.room?.status == 'finished') {
+          partidaFinalizada = true;
+          _dialogoFinalMostrado = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _mostrarResultadoMultijugador();
+          });
+        }
       }
       return;
     }

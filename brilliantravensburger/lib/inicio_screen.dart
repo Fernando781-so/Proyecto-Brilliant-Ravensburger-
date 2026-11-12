@@ -60,7 +60,8 @@ class _InicioScreenState extends State<InicioScreen> {
 
   void _onMultiplayerUpdate() {
     if (!mounted) return;
-    if (widget.multiplayer?.game?.phase == 'playing') {
+    if (widget.multiplayer?.game?.phase == 'playing' ||
+        widget.multiplayer?.room?.status == 'finished') {
       _abrirJuego();
     } else {
       setState(() {});
