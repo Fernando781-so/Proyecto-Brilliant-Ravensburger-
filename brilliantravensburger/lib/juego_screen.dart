@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
@@ -27,6 +28,8 @@ class _JuegoScreenState extends State<JuegoScreen> {
   bool partidaFinalizada = false;
   bool _esperandoDadosCompartidos = false;
   bool _dialogoFinalMostrado = false;
+  bool _dialogoSalidaMostrado = false;
+  bool _salidaConfirmada = false;
   int _ultimoTurnoCompartido = 0;
   List<int>? _casillaJugada;
 
@@ -34,6 +37,50 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   int get numeroAncla => anclaSeleccionada == 1 ? dado1 : dado2;
   int get numeroColocar => anclaSeleccionada == 1 ? dado2 : dado1;
+  bool get _requiereConfirmarSalida =>
+      widget.multiplayer?.room?.status == 'playing' && !_salidaConfirmada;
+
+  void _solicitarSalida() {
+    unawaited(_confirmarSalida());
+  }
+
+  Future<void> _confirmarSalida() async {
+    if (!_requiereConfirmarSalida || _dialogoSalidaMostrado) return;
+    _dialogoSalidaMostrado = true;
+
+    final salir = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Salir de la partida?'),
+        content: const Text(
+          'Tienes 10 segundos para volver a conectarte. Si no regresas en ese plazo, quedarás fuera; el último jugador que permanezca conectado será el ganador.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Seguir jugando'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Salir de todos modos'),
+          ),
+        ],
+      ),
+    );
+
+    _dialogoSalidaMostrado = false;
+    if (!mounted || salir != true) return;
+
+    setState(() => _salidaConfirmada = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
 
   List<List<int>> get posicionesValidas {
     if (_casillaJugada != null ||
@@ -767,6 +814,18 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return PopScope<Object?>(
+      canPop: !_requiereConfirmarSalida,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _requiereConfirmarSalida) {
+          _solicitarSalida();
+        }
+      },
+      child: _buildGameScaffold(),
+    );
+  }
+
+  Widget _buildGameScaffold() {
     final puntaje =
         widget.multiplayer?.myScore ?? widget.tablero.calcularPuntajeTotal();
     final service = widget.multiplayer;
@@ -778,6 +837,13 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: _requiereConfirmarSalida
+            ? IconButton(
+                tooltip: 'Salir de la partida',
+                onPressed: _solicitarSalida,
+                icon: const Icon(Icons.arrow_back),
+              )
+            : null,
         title: Text(
           partidaFinalizada
               ? 'Partida finalizada'
