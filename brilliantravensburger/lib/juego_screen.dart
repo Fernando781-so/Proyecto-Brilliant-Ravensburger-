@@ -406,6 +406,96 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
+  List<Zona> _zonasConReglas() {
+    final regionesMostradas = <Region>{};
+    final zonasMostradas = <Zona>[];
+    for (final zona in widget.tablero.zonas) {
+      if (zona.region == Region.naranja || regionesMostradas.add(zona.region)) {
+        zonasMostradas.add(zona);
+      }
+    }
+    return zonasMostradas;
+  }
+
+  String _nombreZonaRegla(Zona zona) {
+    if (zona.region == Region.naranja) {
+      if (zona.valorMinimo == 4 && zona.valorMaximo == 6) {
+        return 'Anaranjado superior';
+      }
+      if (zona.valorMinimo == 1 && zona.valorMaximo == 3) {
+        return 'Anaranjado inferior';
+      }
+    }
+    return _nombreRegion(zona.region);
+  }
+
+  String _descripcionRegla(Zona zona) {
+    switch (zona.region) {
+      case Region.amarillo:
+        return 'Máximo 5 números por zona.';
+      case Region.verde:
+        return 'Se puede colocar cualquier número.';
+      case Region.azul:
+      case Region.blanco:
+        return 'Todos los números de la zona deben ser iguales.';
+      case Region.lila:
+        return 'Se permiten como máximo 2 números distintos.';
+      case Region.rojo:
+        return 'No se puede repetir ningún número.';
+      case Region.naranja:
+        if (zona.valorMinimo != null && zona.valorMaximo != null) {
+          return 'Solo se permiten números del ${zona.valorMinimo} al ${zona.valorMaximo}.';
+        }
+        return 'Esta zona no tiene un rango de números definido.';
+    }
+  }
+
+  Widget _buildRulesDropdown() {
+    final zonas = _zonasConReglas();
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        visualDensity: VisualDensity.compact,
+        leading: const Icon(Icons.palette_outlined),
+        title: const Text('Reglas de los colores'),
+        subtitle: Text('${zonas.length} reglas para este tablero'),
+        children: [
+          if (zonas.isEmpty)
+            const ListTile(
+              dense: true,
+              title: Text('Este tablero no tiene reglas de color.'),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: zonas.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final zona = zonas[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      Icons.circle,
+                      color: _colorParaRegion(zona.region),
+                      size: 20,
+                    ),
+                    title: Text(_nombreZonaRegla(zona)),
+                    subtitle: Text(_descripcionRegla(zona)),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMultiplayerScoreboard(MultiplayerService service) {
     final room = service.room;
     if (room == null) return const SizedBox.shrink();
@@ -417,73 +507,62 @@ class _JuegoScreenState extends State<JuegoScreen> {
             ? scoreComparison
             : left.username.compareTo(right.username);
       });
-    final highestScore = players.isEmpty ? 0 : players.first.score;
-    final leaders = players
-        .where((player) => player.score == highestScore)
-        .toList();
     final connectedCount = players.where((player) => player.connected).length;
-    final leaderLabel = highestScore == 0
-        ? 'Aún sin puntos'
-        : leaders.length == 1
-        ? 'Lidera: ${leaders.first.username}'
-        : 'Empate: ${leaders.map((player) => player.username).join(', ')}';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 6,
-        runSpacing: 2,
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        visualDensity: VisualDensity.compact,
+        leading: const Icon(Icons.groups_outlined),
+        title: Text('Jugadores y puntajes (${players.length})'),
+        subtitle: Text(
+          'De mayor a menor · En línea: $connectedCount/${players.length} · Meta: ${room.targetPoints} pts',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         children: [
-          Chip(
-            avatar: const Icon(Icons.groups_outlined, size: 16),
-            label: Text('En línea: $connectedCount/${players.length}'),
-            visualDensity: VisualDensity.compact,
-          ),
-          Chip(
-            avatar: const Icon(Icons.flag_outlined, size: 16),
-            label: Text('Meta: ${room.targetPoints} pts'),
-            visualDensity: VisualDensity.compact,
-          ),
-          Chip(
-            avatar: Icon(
-              leaders.length > 1
-                  ? Icons.emoji_events_outlined
-                  : Icons.emoji_events,
-              size: 16,
-              color: Colors.amber.shade900,
-            ),
-            label: Text(leaderLabel),
-            backgroundColor: Colors.amber.shade100,
-            visualDensity: VisualDensity.compact,
-          ),
-          for (var index = 0; index < players.length; index++)
-            Builder(
-              builder: (context) {
-                final player = players[index];
-                final isLeader =
-                    highestScore > 0 && player.score == highestScore;
-                return Tooltip(
-                  message: player.connected ? 'Conectado' : 'Desconectado',
-                  child: Chip(
-                    avatar: Icon(
-                      player.connected ? Icons.person : Icons.wifi_off,
-                      size: 16,
-                      color: player.connected
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
+          if (players.isEmpty)
+            const ListTile(
+              dense: true,
+              title: Text('Todavía no hay jugadores en la partida.'),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 180),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: players.length,
+                separatorBuilder: (context, index) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final player = players[index];
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 15,
+                      backgroundColor: index == 0
+                          ? Colors.amber.shade100
+                          : Colors.blueGrey.shade50,
+                      child: Text('${index + 1}'),
                     ),
-                    label: Text(
-                      '${index + 1}. ${player.username}: ${player.score} pts',
+                    title: Text(
+                      player.username,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    backgroundColor: isLeader ? Colors.amber.shade100 : null,
-                    side: isLeader
-                        ? BorderSide(color: Colors.amber.shade800, width: 1.5)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                );
-              },
+                    subtitle: Text(
+                      player.connected ? 'Conectado' : 'Desconectado',
+                    ),
+                    trailing: Text(
+                      '${player.score} pts',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  );
+                },
+              ),
             ),
         ],
       ),
@@ -826,6 +905,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.blue.shade900,
                           elevation: 2,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -846,6 +926,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 ],
               ),
             ),
+            _buildRulesDropdown(),
             if (widget.multiplayer != null)
               _buildMultiplayerScoreboard(widget.multiplayer!),
             if (widget.multiplayer != null)
