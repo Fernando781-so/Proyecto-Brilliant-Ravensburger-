@@ -330,8 +330,7 @@ void main() {
           region: Region.verde,
           posiciones: [
             for (var fila = 0; fila < 7; fila++)
-              for (var columna = 0; columna < 7; columna++)
-                [fila, columna],
+              for (var columna = 0; columna < 7; columna++) [fila, columna],
           ],
         ),
       ],
@@ -343,7 +342,7 @@ void main() {
       (widget) =>
           widget is Tooltip &&
           widget.message?.startsWith('Puedes colocar el número') == true,
-        );
+    );
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await mouse.addPointer(location: tester.getCenter(casillaValida.first));
     await mouse.moveTo(tester.getCenter(casillaValida.first));
@@ -358,6 +357,55 @@ void main() {
       findsOneWidget,
     );
     await mouse.removePointer();
+  });
+
+  testWidgets('muestra solo las reglas del tablero y separa el naranja', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+
+    await _iniciarPartida(tester, 4);
+    await _jugarPrimerMovimientoDisponible(tester);
+    for (var intento = 0; intento < 100; intento++) {
+      if (find.text('Sin movimientos').evaluate().isEmpty) break;
+      await tester.tap(find.text('Entendido'));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Reglas de los colores'), findsOneWidget);
+    expect(find.text('Anaranjado superior'), findsNothing);
+
+    await tester.tap(find.text('Reglas de los colores'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Anaranjado superior'),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Anaranjado superior'), findsOneWidget);
+    expect(find.text('Solo se permiten números del 4 al 6.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Anaranjado inferior'),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Anaranjado inferior'), findsOneWidget);
+    expect(find.text('Solo se permiten números del 1 al 3.'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Lila'),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.text('Se permiten como máximo 2 números distintos.'),
+      findsOneWidget,
+    );
+    expect(find.text('Blanco'), findsNothing);
   });
 
   testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
