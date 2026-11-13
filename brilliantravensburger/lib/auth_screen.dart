@@ -67,6 +67,15 @@ class _AuthScreenState extends State<AuthScreen> {
         } else {
           setState(() => _isLogin = true);
         }
+      } else if (!_isLogin &&
+          (response.statusCode == 409 ||
+              (response.statusCode == 400 &&
+                  data is Map &&
+                  data['error'] == 'El usuario ya existe'))) {
+        setState(() => _isLogin = true);
+        _mostrarError(
+          'Ese nombre de usuario ya está registrado. Inicia sesión.',
+        );
       } else {
         _mostrarError(data['error'] ?? 'Error desconocido');
       }
