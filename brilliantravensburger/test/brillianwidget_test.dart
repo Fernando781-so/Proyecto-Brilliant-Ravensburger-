@@ -31,10 +31,17 @@ class _FakeMultiplayerService implements MultiplayerService {
   int get myScore => 30;
 
   @override
+  List<int>? get myBoard => null;
+
+  @override
   bool get myTurnIsComplete => false;
 
   @override
   bool get myBoardIsComplete => false;
+
+  @override
+  bool get mySetupIsComplete =>
+      game?.setupCompletePlayerIds.contains(playerId) ?? false;
 
   @override
   void addListener(VoidCallback listener) {}
@@ -476,6 +483,65 @@ void main() {
       findsWidgets,
     );
     expect(find.textContaining('Zona '), findsWidgets);
+  });
+
+  testWidgets('no entra al juego sin confirmar sus números iniciales', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-host',
+        capacity: 2,
+        boardId: 2,
+        targetPoints: 20,
+        status: 'playing',
+        players: const [
+          MultiplayerPlayer(
+            id: 'player-host',
+            username: 'Anfitrión',
+            ready: true,
+            connected: true,
+            score: 0,
+            finished: false,
+            setupComplete: true,
+          ),
+          MultiplayerPlayer(
+            id: 'player-mobile',
+            username: 'Invitado',
+            ready: true,
+            connected: true,
+            score: 0,
+            finished: false,
+            setupComplete: false,
+          ),
+        ],
+      ),
+      game: const MultiplayerGameState(
+        turn: 1,
+        dice: [2, 5],
+        phase: 'playing',
+        setupCompletePlayerIds: {'player-host'},
+        completedPlayerIds: {},
+        zoneClaims: {},
+        winnerId: null,
+      ),
+    )..playerId = 'player-mobile';
+
+    await tester.pumpWidget(
+      MaterialApp(home: InicioScreen(tableroInicial: 2, multiplayer: service)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Coloca tus 6 números iniciales para completar la configuración.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('COLOCA LOS 6 NÚMEROS'), findsOneWidget);
+    expect(find.text('Brilliant - Tablero 2 - Turno 1'), findsNothing);
   });
 
   testWidgets('muestra conectados por puntaje y las zonas capturadas', (
