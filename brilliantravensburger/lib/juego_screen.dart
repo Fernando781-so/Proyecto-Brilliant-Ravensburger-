@@ -460,17 +460,6 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
-  List<Zona> _zonasConReglas() {
-    final regionesMostradas = <Region>{};
-    final zonasMostradas = <Zona>[];
-    for (final zona in widget.tablero.zonas) {
-      if (zona.region == Region.naranja || regionesMostradas.add(zona.region)) {
-        zonasMostradas.add(zona);
-      }
-    }
-    return zonasMostradas;
-  }
-
   String _nombreZonaRegla(Zona zona) {
     if (zona.region == Region.naranja) {
       if (zona.valorMinimo == 4 && zona.valorMaximo == 6) {
@@ -504,45 +493,110 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
+  Widget _buildZoneInfoTile(
+    int index,
+    Zona zona,
+    Map<int, List<Map<String, dynamic>>> claimsByZone,
+  ) {
+    final claims = claimsByZone[index] ?? const [];
+    Map<String, dynamic>? claimForPlayer;
+    final playerId = widget.multiplayer?.playerId;
+    if (playerId != null) {
+      for (final claim in claims) {
+        if ('${claim['playerId']}' == playerId) {
+          claimForPlayer = claim;
+          break;
+        }
+      }
+    }
+
+    final points = zona.bolsaPuntos;
+    final nextPointIndex = points.isEmpty
+        ? 0
+        : min(claims.length, points.length - 1);
+    final nextPoints = points.isEmpty ? 0 : points[nextPointIndex];
+    final claimedPoints = (claimForPlayer?['points'] as num?)?.toInt();
+
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Tooltip(
+        message: _descripcionRegla(zona),
+        triggerMode: TooltipTriggerMode.tap,
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: _colorParaRegion(zona.region),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black38),
+          ),
+          child: const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: Colors.black87,
+          ),
+        ),
+      ),
+      title: Text('Zona ${index + 1} · ${_nombreZonaRegla(zona)}'),
+      subtitle: Text(
+        'Puntos: ${points.join(' → ')}',
+        key: ValueKey('zone-points-${index + 1}'),
+      ),
+      trailing: SizedBox(
+        width: 76,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              claimedPoints == null ? 'Próximo' : 'Reclamada',
+              style: const TextStyle(fontSize: 11),
+            ),
+            Text(
+              claimedPoints == null
+                  ? '+$nextPoints pts'
+                  : '+$claimedPoints pts',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              key: ValueKey('zone-next-points-${index + 1}'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRulesDropdown() {
-    final zonas = _zonasConReglas();
+    final zonas = widget.tablero.zonas;
+    final claimsByZone = widget.multiplayer?.game?.zoneClaims ?? const {};
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         visualDensity: VisualDensity.compact,
-        leading: const Icon(Icons.palette_outlined),
-        title: const Text('Reglas de los colores'),
-        subtitle: Text('${zonas.length} reglas para este tablero'),
+        leading: const Icon(Icons.hearing),
+        title: const Text('Reglas y puntos por zona'),
+        subtitle: Text('${zonas.length} zonas · toca el color para la regla'),
         children: [
           if (zonas.isEmpty)
             const ListTile(
               dense: true,
-              title: Text('Este tablero no tiene reglas de color.'),
+              title: Text('Este tablero no tiene zonas.'),
             )
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                itemCount: zonas.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final zona = zonas[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      Icons.circle,
-                      color: _colorParaRegion(zona.region),
-                      size: 20,
-                    ),
-                    title: Text(_nombreZonaRegla(zona)),
-                    subtitle: Text(_descripcionRegla(zona)),
-                  );
-                },
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    for (var index = 0; index < zonas.length; index++) ...[
+                      if (index > 0) const Divider(height: 1),
+                      _buildZoneInfoTile(index, zonas[index], claimsByZone),
+                    ],
+                  ],
+                ),
               ),
             ),
         ],
@@ -550,80 +604,43 @@ class _JuegoScreenState extends State<JuegoScreen> {
     );
   }
 
-  Widget _buildMultiplayerScoreboard(MultiplayerService service) {
+  String _rankLabel(int index) {
+    switch (index) {
+      case 0:
+        return '1.er lugar';
+      case 1:
+        return '2.º lugar';
+      case 2:
+        return '3.er lugar';
+      default:
+        return '${index + 1}.º lugar';
+    }
+  }
+
+  Color _rankColor(int index) {
+    switch (index) {
+      case 0:
+        return Colors.amber.shade100;
+      case 1:
+        return Colors.blueGrey.shade100;
+      case 2:
+        return Colors.brown.shade100;
+      default:
+        return Colors.blueGrey.shade50;
+    }
+  }
+
+  Widget _buildMatchInfoDropdown(MultiplayerService service) {
     final room = service.room;
     if (room == null) return const SizedBox.shrink();
 
-    final players = [...room.players]
+    final players = room.players.where((player) => player.connected).toList()
       ..sort((left, right) {
         final scoreComparison = right.score.compareTo(left.score);
         return scoreComparison != 0
             ? scoreComparison
             : left.username.compareTo(right.username);
       });
-    final connectedCount = players.where((player) => player.connected).length;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        visualDensity: VisualDensity.compact,
-        leading: const Icon(Icons.groups_outlined),
-        title: Text('Jugadores y puntajes (${players.length})'),
-        subtitle: Text(
-          'De mayor a menor · En línea: $connectedCount/${players.length} · Meta: ${room.targetPoints} pts',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        children: [
-          if (players.isEmpty)
-            const ListTile(
-              dense: true,
-              title: Text('Todavía no hay jugadores en la partida.'),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: const ClampingScrollPhysics(),
-                itemCount: players.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final player = players[index];
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      radius: 15,
-                      backgroundColor: index == 0
-                          ? Colors.amber.shade100
-                          : Colors.blueGrey.shade50,
-                      child: Text('${index + 1}'),
-                    ),
-                    title: Text(
-                      player.username,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      player.connected ? 'Conectado' : 'Desconectado',
-                    ),
-                    trailing: Text(
-                      '${player.score} pts',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildZoneClaims(MultiplayerService service) {
     final claimsByZone = service.game?.zoneClaims ?? const {};
     final claimedZones =
         claimsByZone.entries
@@ -642,33 +659,71 @@ class _JuegoScreenState extends State<JuegoScreen> {
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         visualDensity: VisualDensity.compact,
-        leading: const Icon(Icons.workspace_premium_outlined),
-        title: Text('Zonas capturadas: ${claimedZones.length}'),
-        subtitle: Text('Primero: alto · segundo: intermedio · resto: bajo'),
+        leading: const Icon(Icons.leaderboard_outlined),
+        title: const Text('Jugadores conectados y zonas capturadas'),
+        subtitle: Text(
+          '${players.length} conectados · ${claimedZones.length} zonas · Meta: ${room.targetPoints} pts',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         children: [
-          if (claimedZones.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('Todavía no se ha capturado ninguna zona.'),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: claimedZones.length,
-                separatorBuilder: (context, index) => const Divider(height: 8),
-                itemBuilder: (context, zoneIndex) {
-                  final entry = claimedZones[zoneIndex];
-                  final zone = widget.tablero.zonas[entry.key];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Zona ${entry.key + 1} · ${_nombreRegion(zone.region)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Puntaje de jugadores conectados',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (players.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text('No hay jugadores conectados.'),
+                    )
+                  else
+                    for (var index = 0; index < players.length; index++)
+                      ListTile(
+                        key: ValueKey('connected-player-${players[index].id}'),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: _rankColor(index),
+                          child: Text('${index + 1}'),
+                        ),
+                        title: Text(
+                          players[index].username,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(_rankLabel(index)),
+                        trailing: Text(
+                          '${players[index].score} pts',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                  const Divider(height: 20),
+                  Text(
+                    'Zonas capturadas (${claimedZones.length})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (claimedZones.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('Todavía no se ha capturado ninguna zona.'),
+                    )
+                  else
+                    for (final entry in claimedZones) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Zona ${entry.key + 1} · ${_nombreRegion(widget.tablero.zonas[entry.key].region)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       for (
                         var claimIndex = 0;
                         claimIndex < entry.value.length;
@@ -697,7 +752,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                                 ),
                               ),
                               Text(
-                                '+${(entry.value[claimIndex]['points'] as num?)?.toInt() ?? 0} pts',
+                                '+${((entry.value[claimIndex]['points'] ?? entry.value[claimIndex]['score']) as num?)?.toInt() ?? 0} pts',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -706,10 +761,10 @@ class _JuegoScreenState extends State<JuegoScreen> {
                           ),
                         ),
                     ],
-                  );
-                },
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -1001,9 +1056,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
             ),
             _buildRulesDropdown(),
             if (widget.multiplayer != null)
-              _buildMultiplayerScoreboard(widget.multiplayer!),
-            if (widget.multiplayer != null)
-              _buildZoneClaims(widget.multiplayer!),
+              _buildMatchInfoDropdown(widget.multiplayer!),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
