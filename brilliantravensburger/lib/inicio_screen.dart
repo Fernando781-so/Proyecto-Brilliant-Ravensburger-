@@ -43,7 +43,7 @@ class _InicioScreenState extends State<InicioScreen> {
         }
       }
       service.addListener(_onMultiplayerUpdate);
-      if (service.game?.phase == 'playing') {
+      if (_puedeAbrirPartidaMultijugador) {
         WidgetsBinding.instance.addPostFrameCallback((_) => _abrirJuego());
       }
     }
@@ -58,10 +58,16 @@ class _InicioScreenState extends State<InicioScreen> {
   bool get _miConfiguracionCompletada =>
       widget.multiplayer?.mySetupIsComplete ?? false;
 
+  bool get _puedeAbrirPartidaMultijugador {
+    final service = widget.multiplayer;
+    return service != null &&
+        (service.room?.status == 'finished' ||
+            (service.game?.phase == 'playing' && _miConfiguracionCompletada));
+  }
+
   void _onMultiplayerUpdate() {
     if (!mounted) return;
-    if (widget.multiplayer?.game?.phase == 'playing' ||
-        widget.multiplayer?.room?.status == 'finished') {
+    if (_puedeAbrirPartidaMultijugador) {
       _abrirJuego();
     } else {
       setState(() {});
@@ -142,6 +148,10 @@ class _InicioScreenState extends State<InicioScreen> {
             ),
             if (_miConfiguracionCompletada)
               const Text('Tu tablero está listo; espera a los demás.')
+            else if (service.game?.phase == 'playing')
+              const Text(
+                'Coloca tus 6 números iniciales para completar la configuración.',
+              )
             else if (disconnected.isNotEmpty)
               Text(
                 'Esperando que se reconecte${disconnected.length == 1 ? '' : 'n'}: ${disconnected.join(', ')}',
