@@ -151,6 +151,11 @@ class _AuthScreenState extends State<AuthScreen> {
             backgroundColor: Colors.green,
           ),
         );
+      } else if (_isLogin &&
+          response.statusCode == 409 &&
+          data is Map &&
+          data['code'] == 'SESSION_ACTIVE') {
+        await _confirmarRecuperacionSesion();
       } else if (!_isLogin &&
           (response.statusCode == 409 ||
               (response.statusCode == 400 &&
@@ -167,6 +172,90 @@ class _AuthScreenState extends State<AuthScreen> {
       _mostrarError('Error de conexión con el servidor');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _confirmarRecuperacionSesion() async {
+    final recuperar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('La cuenta ya tiene una sesión activa'),
+        content: const Text(
+          'Puedes cerrar la sesión anterior e iniciar aquí. El otro dispositivo tendrá que volver a iniciar sesión.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cerrar sesión anterior'),
+          ),
+        ],
+      ),
+    );
+    if (recuperar != true || !mounted) return;
+
+    final username = _usernameController.text.trim();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login/recover'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': username,
+          'password': _passwordController.text.trim(),
+        }),
+      );
+      final data = jsonDecode(response.body);
+      if (!mounted) return;
+      if (response.statusCode != 200) {
+        _mostrarError(
+          data is Map
+              ? data['error'] ?? 'No se pudo recuperar la sesión.'
+              : 'No se pudo recuperar la sesión.',
+        );
+        return;
+      }
+
+      final token = data['token'] as String?;
+      if (token == null) {
+        _mostrarError('El servidor no devolvió un token de sesión.');
+        return;
+      }
+
+      try {
+        await _sessionStorage.write(
+          key: _savedSessionKey,
+          value: jsonEncode({'token': token, 'username': username}),
+        );
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _token = token;
+          _currentUser = username;
+        });
+        _mostrarError(
+          'Sesión recuperada, pero no se pudo guardar en este dispositivo.',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _token = token;
+        _currentUser = username;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sesión anterior cerrada. Ya puedes continuar.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        _mostrarError('No se pudo recuperar la sesión. Intenta nuevamente.');
+      }
     }
   }
 
