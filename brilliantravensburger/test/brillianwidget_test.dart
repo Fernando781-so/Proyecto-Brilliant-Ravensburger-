@@ -1,9 +1,53 @@
 import 'package:brilliantravensburger/inicio_screen.dart';
 import 'package:brilliantravensburger/brilliantravensburger.dart';
 import 'package:brilliantravensburger/juego_screen.dart';
+import 'package:brilliantravensburger/multiplayer_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _FakeMultiplayerService implements MultiplayerService {
+  _FakeMultiplayerService({required this.room, required this.game});
+
+  @override
+  MultiplayerRoom? room;
+
+  @override
+  MultiplayerGameState? game;
+
+  @override
+  String? playerId = 'player-top';
+
+  @override
+  String? lastError;
+
+  @override
+  bool get isConnected => true;
+
+  @override
+  bool get canPlay => true;
+
+  @override
+  int get myScore => 30;
+
+  @override
+  bool get myTurnIsComplete => false;
+
+  @override
+  bool get myBoardIsComplete => false;
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+
+  @override
+  void dispose() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 Future<void> _colocarNumero(WidgetTester tester, int numero) async {
   await tester.tap(find.text('+').first);
@@ -359,7 +403,7 @@ void main() {
     await mouse.removePointer();
   });
 
-  testWidgets('muestra solo las reglas del tablero y separa el naranja', (
+  testWidgets('muestra reglas y premios de cada zona del tablero', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(430, 800);
@@ -376,36 +420,165 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Reglas de los colores'), findsOneWidget);
+    expect(find.text('Reglas y puntos por zona'), findsOneWidget);
     expect(find.text('Anaranjado superior'), findsNothing);
 
-    await tester.tap(find.text('Reglas de los colores'));
+    await tester.tap(find.byType(ExpansionTile).first);
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.text('Anaranjado superior'),
-      80,
-      scrollable: find.byType(Scrollable).first,
+    final board = crearTablero(4);
+    final upperOrangeIndex = board.zonas.indexWhere(
+      (zone) => zone.region == Region.naranja && zone.valorMinimo == 4,
     );
-    expect(find.text('Anaranjado superior'), findsOneWidget);
-    expect(find.text('Solo se permiten números del 4 al 6.'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Anaranjado inferior'),
-      80,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Anaranjado inferior'), findsOneWidget);
-    expect(find.text('Solo se permiten números del 1 al 3.'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Lila'),
-      80,
-      scrollable: find.byType(Scrollable).first,
+    expect(upperOrangeIndex, isNonNegative);
+    expect(find.byIcon(Icons.hearing), findsOneWidget);
+    final upperOrangeLabel = find.textContaining('· Anaranjado superior');
+    expect(upperOrangeLabel, findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(ValueKey('zone-points-${upperOrangeIndex + 1}')),
+          )
+          .data,
+      'Puntos: 6 → 4 → 3',
     );
     expect(
-      find.text('Se permiten como máximo 2 números distintos.'),
-      findsOneWidget,
+      tester
+          .widget<Text>(
+            find.byKey(ValueKey('zone-next-points-${upperOrangeIndex + 1}')),
+          )
+          .data,
+      '+6 pts',
     );
-    expect(find.text('Blanco'), findsNothing);
+    final orangeRule = find.byWidgetPredicate(
+      (widget) =>
+          widget is Tooltip &&
+          widget.message == 'Solo se permiten números del 4 al 6.' &&
+          widget.triggerMode == TooltipTriggerMode.tap,
+    );
+    expect(orangeRule, findsOneWidget);
+    await tester.ensureVisible(orangeRule);
+    await tester.pumpAndSettle();
+    await tester.tap(orangeRule);
+    await tester.pumpAndSettle();
+    expect(find.text('Solo se permiten números del 4 al 6.'), findsOneWidget);
+
+    final lowerOrangeLabel = find.textContaining('· Anaranjado inferior');
+    await tester.ensureVisible(lowerOrangeLabel);
+    expect(lowerOrangeLabel, findsOneWidget);
+    await tester.ensureVisible(find.textContaining('· Lila'));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Tooltip &&
+            widget.message == 'Se permiten como máximo 2 números distintos.',
+      ),
+      findsWidgets,
+    );
+    expect(find.textContaining('Zona '), findsWidgets);
+  });
+
+  testWidgets('muestra conectados por puntaje y las zonas capturadas', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-top',
+        capacity: 4,
+        boardId: 4,
+        targetPoints: 30,
+        status: 'playing',
+        players: const [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 30,
+            finished: false,
+            setupComplete: true,
+          ),
+          MultiplayerPlayer(
+            id: 'player-second',
+            username: 'Luis',
+            ready: true,
+            connected: true,
+            score: 20,
+            finished: false,
+            setupComplete: true,
+          ),
+          MultiplayerPlayer(
+            id: 'player-third',
+            username: 'Mia',
+            ready: true,
+            connected: true,
+            score: 10,
+            finished: false,
+            setupComplete: true,
+          ),
+          MultiplayerPlayer(
+            id: 'player-offline',
+            username: 'Fuera',
+            ready: true,
+            connected: false,
+            score: 99,
+            finished: false,
+            setupComplete: true,
+          ),
+        ],
+      ),
+      game: const MultiplayerGameState(
+        turn: 1,
+        dice: [1, 2],
+        phase: 'playing',
+        setupCompletePlayerIds: {'player-top', 'player-second', 'player-third'},
+        completedPlayerIds: {},
+        zoneClaims: {
+          0: [
+            {'playerId': 'player-top', 'username': 'Ana', 'points': 6},
+            {'playerId': 'player-second', 'username': 'Luis', 'points': 4},
+          ],
+          3: [
+            {'playerId': 'player-third', 'username': 'Mia', 'points': 5},
+          ],
+        },
+        winnerId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: crearTablero(4), multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final menu = find.text('Jugadores conectados y zonas capturadas');
+    await tester.ensureVisible(menu);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+
+    expect(find.text('3 conectados · 2 zonas · Meta: 30 pts'), findsOneWidget);
+    expect(find.text('Fuera'), findsNothing);
+    expect(find.text('Zonas capturadas (2)'), findsOneWidget);
+    for (final (playerId, rank) in [
+      ('player-top', '1.er lugar'),
+      ('player-second', '2.º lugar'),
+      ('player-third', '3.er lugar'),
+    ]) {
+      expect(
+        find.descendant(
+          of: find.byKey(ValueKey('connected-player-$playerId')),
+          matching: find.text(rank),
+        ),
+        findsOneWidget,
+      );
+    }
+    expect(find.textContaining('Zona 1 ·'), findsOneWidget);
+    expect(find.text('+6 pts'), findsOneWidget);
+    expect(find.text('+4 pts'), findsOneWidget);
   });
 
   testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
