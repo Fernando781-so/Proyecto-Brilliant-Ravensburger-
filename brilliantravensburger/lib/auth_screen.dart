@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'app_config.dart';
@@ -13,6 +14,9 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  static const FlutterSecureStorage _sessionStorage = FlutterSecureStorage();
+  static const String _savedSessionKey = 'auth_session';
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -23,10 +27,66 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _currentUser;
 
   @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      final savedSession = await _sessionStorage.read(key: _savedSessionKey);
+      if (savedSession == null) return;
+
+      final decodedSession = jsonDecode(savedSession);
+      if (decodedSession is! Map ||
+          decodedSession['token'] is! String ||
+          decodedSession['username'] is! String) {
+        await _sessionStorage.delete(key: _savedSessionKey);
+        if (mounted) _mostrarError('La sesión guardada no es válida.');
+        return;
+      }
+
+      final savedToken = decodedSession['token'] as String;
+      var savedUsername = decodedSession['username'] as String;
+      try {
+        final response = await http.get(
+          Uri.parse('$baseUrl/session'),
+          headers: {'Authorization': 'Bearer $savedToken'},
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          savedUsername = data['username'] ?? savedUsername;
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          await _sessionStorage.delete(key: _savedSessionKey);
+          if (mounted) {
+            _mostrarError('La sesión ya no está activa. Inicia sesión.');
+          }
+          return;
+        } else if (mounted) {
+          _mostrarError('No se pudo validar la sesión con el servidor.');
+        }
+      } catch (error) {
+        if (mounted) {
+          _mostrarError('No se pudo validar la sesión con el servidor.');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _token = savedToken;
+          _currentUser = savedUsername;
+        });
+      }
+    } catch (error) {
+      if (mounted) _mostrarError('No se pudo restaurar la sesión guardada.');
+    }
   }
 
   Future<void> _submit() async {
@@ -49,6 +109,39 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
+        if (_isLogin) {
+          final token = data['token'] as String?;
+          if (token == null) {
+            _mostrarError('El servidor no devolvió un token de sesión.');
+            return;
+          }
+          final username = _usernameController.text.trim();
+          try {
+            await _sessionStorage.write(
+              key: _savedSessionKey,
+              value: jsonEncode({'token': token, 'username': username}),
+            );
+          } catch (error) {
+            if (!mounted) return;
+            setState(() {
+              _token = token;
+              _currentUser = username;
+            });
+            _mostrarError(
+              'No se pudo guardar la sesión en este dispositivo. '
+              'Cierra sesión antes de salir.',
+            );
+            return;
+          }
+          if (!mounted) return;
+          setState(() {
+            _token = token;
+            _currentUser = username;
+          });
+        } else {
+          setState(() => _isLogin = true);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -58,15 +151,6 @@ class _AuthScreenState extends State<AuthScreen> {
             backgroundColor: Colors.green,
           ),
         );
-
-        if (_isLogin) {
-          setState(() {
-            _token = data['token'];
-            _currentUser = _usernameController.text.trim();
-          });
-        } else {
-          setState(() => _isLogin = true);
-        }
       } else if (!_isLogin &&
           (response.statusCode == 409 ||
               (response.statusCode == 400 &&
@@ -82,7 +166,56 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (e) {
       _mostrarError('Error de conexión con el servidor');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    if (_token == null) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/logout'),
+        headers: {'Authorization': 'Bearer $_token'},
+      );
+      if (!mounted) return;
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 401 ||
+          response.statusCode == 403) {
+        final wasAlreadyClosed = response.statusCode != 200;
+        setState(() {
+          _token = null;
+          _currentUser = null;
+          _usernameController.clear();
+          _passwordController.clear();
+          _isPasswordVisible = false;
+        });
+        try {
+          await _sessionStorage.delete(key: _savedSessionKey);
+        } catch (error) {
+          if (mounted) {
+            _mostrarError(
+              'Se cerró la sesión, pero no se pudo borrar del dispositivo.',
+            );
+          }
+        }
+        if (wasAlreadyClosed && mounted) {
+          _mostrarError(
+            'La sesión anterior ya no estaba activa. Inicia sesión nuevamente.',
+          );
+        }
+      } else {
+        final data = jsonDecode(response.body);
+        _mostrarError(data['error'] ?? 'No se pudo cerrar la sesión.');
+      }
+    } catch (error) {
+      _mostrarError(
+        'No se pudo cerrar la sesión. La cuenta seguirá activa; intenta de nuevo.',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -112,11 +245,18 @@ class _AuthScreenState extends State<AuthScreen> {
           _passwordController.clear();
           _isPasswordVisible = false;
         });
+        try {
+          await _sessionStorage.delete(key: _savedSessionKey);
+        } catch (error) {
+          _mostrarError(
+            'La cuenta se eliminó, pero no se pudo borrar la sesión guardada.',
+          );
+        }
       }
     } catch (e) {
       _mostrarError('Error al eliminar la cuenta');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -157,9 +297,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                   onPressed: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const InicioScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const InicioScreen()),
                     );
                   },
                   icon: const Icon(Icons.play_arrow),
@@ -242,13 +380,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: () => setState(() {
-                  _token = null;
-                  _currentUser = null;
-                  _usernameController.clear();
-                  _passwordController.clear();
-                  _isPasswordVisible = false;
-                }),
+                onPressed: _isLoading ? null : _logout,
                 child: const Text(
                   'Cerrar sesión',
                   style: TextStyle(color: Colors.grey),
