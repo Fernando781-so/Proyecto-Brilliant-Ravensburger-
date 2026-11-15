@@ -428,6 +428,13 @@ void main() {
     }
 
     expect(find.text('Reglas y puntos por zona'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('placement-guide')),
+        matching: find.textContaining('casilla iluminada'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Anaranjado superior'), findsNothing);
 
     await tester.tap(find.byType(ExpansionTile).first);
@@ -441,6 +448,7 @@ void main() {
     expect(find.byIcon(Icons.hearing), findsOneWidget);
     final upperOrangeLabel = find.textContaining('· Anaranjado superior');
     expect(upperOrangeLabel, findsOneWidget);
+    expect(find.textContaining('🟠 Zona'), findsWidgets);
     expect(
       tester
           .widget<Text>(
@@ -663,5 +671,70 @@ void main() {
     expect(find.text('Puntaje total: 30 pts'), findsOneWidget);
     expect(find.text('Partida finalizada'), findsOneWidget);
     expect(find.text('Sin movimientos'), findsNothing);
+  });
+
+  testWidgets('muestra los tableros compartidos al terminar la partida', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-top',
+        capacity: 2,
+        boardId: 2,
+        targetPoints: 20,
+        status: 'finished',
+        players: [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 30,
+            finished: true,
+            setupComplete: true,
+            board: List<int>.filled(49, 1),
+          ),
+          MultiplayerPlayer(
+            id: 'player-second',
+            username: 'Luis',
+            ready: true,
+            connected: true,
+            score: 20,
+            finished: true,
+            setupComplete: true,
+            board: List<int>.filled(49, 2),
+          ),
+        ],
+      ),
+      game: const MultiplayerGameState(
+        turn: 8,
+        dice: [2, 5],
+        phase: 'finished',
+        setupCompletePlayerIds: {'player-top', 'player-second'},
+        completedPlayerIds: {'player-top', 'player-second'},
+        zoneClaims: {},
+        winnerId: 'player-top',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: crearTablero(2), multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver tableros'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('final-board-player-top')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('final-board-player-second')),
+      findsOneWidget,
+    );
   });
 }

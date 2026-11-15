@@ -197,6 +197,73 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 : (value) => setState(() => _boardId = value ?? 1),
           ),
           const SizedBox(height: 16),
+          const Text(
+            'Vista previa de tableros',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 184,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 2.15,
+              ),
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                final boardId = index + 1;
+                final isSelected = _boardId == boardId;
+                return Card(
+                  key: ValueKey('creation-board-card-$boardId'),
+                  margin: EdgeInsets.zero,
+                  color: isSelected ? Colors.blue.shade50 : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: isSelected ? Colors.blue : Colors.black12,
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    key: ValueKey('creation-board-$boardId'),
+                    onTap: _loading
+                        ? null
+                        : () => setState(() => _boardId = boardId),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          TableroPreview(boardId: boardId, size: 72),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isSelected
+                                  ? 'Tablero $boardId\nSeleccionado'
+                                  : 'Tablero $boardId',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isSelected ? Colors.blue.shade900 : null,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle, color: Colors.blue),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             height: 50,
             child: ElevatedButton.icon(
