@@ -214,7 +214,81 @@ class _JuegoScreenState extends State<JuegoScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Ver tablero'),
+            child: const Text('Volver al tablero'),
+          ),
+          ElevatedButton(
+            onPressed: () => _mostrarTablerosMultijugador(service),
+            child: const Text('Ver tableros'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarTablerosMultijugador(MultiplayerService service) {
+    final boards = <String, List<int>>{};
+    for (final player in service.room?.players ?? const <MultiplayerPlayer>[]) {
+      final board = player.board;
+      if (board != null && board.length == 49) {
+        boards[player.id] = board;
+      }
+    }
+    for (final entry
+        in service.game?.playerBoards.entries ??
+            const <MapEntry<String, List<int>>>[]) {
+      if (entry.value.length == 49) boards[entry.key] = entry.value;
+    }
+    final ownBoard = service.myBoard;
+    if (service.playerId != null && ownBoard?.length == 49) {
+      boards[service.playerId!] = ownBoard!;
+    }
+    final players = service.room?.players ?? const <MultiplayerPlayer>[];
+    final boardId = service.room?.boardId ?? widget.tableroSeleccionado ?? 1;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Tableros de la partida'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (boards.isEmpty)
+                  const Text('No hay tableros compartidos para mostrar.')
+                else
+                  for (final player in players)
+                    if (boards.containsKey(player.id)) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 4),
+                        child: Text(
+                          '${player.username} · ${player.score} pts',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      _PlayerBoardPreview(
+                        key: ValueKey('final-board-${player.id}'),
+                        boardId: boardId,
+                        values: boards[player.id]!,
+                      ),
+                    ],
+                if (players.any((player) => !boards.containsKey(player.id)))
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Los tableros que faltan no fueron compartidos por el servidor.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
           ),
         ],
       ),
@@ -460,6 +534,25 @@ class _JuegoScreenState extends State<JuegoScreen> {
     }
   }
 
+  String _simboloRegion(Region region) {
+    switch (region) {
+      case Region.amarillo:
+        return '🟡';
+      case Region.verde:
+        return '🟢';
+      case Region.azul:
+        return '🔵';
+      case Region.lila:
+        return '🟣';
+      case Region.rojo:
+        return '🔴';
+      case Region.blanco:
+        return '⚪';
+      case Region.naranja:
+        return '🟠';
+    }
+  }
+
   String _nombreZonaRegla(Zona zona) {
     if (zona.region == Region.naranja) {
       if (zona.valorMinimo == 4 && zona.valorMaximo == 6) {
@@ -531,14 +624,17 @@ class _JuegoScreenState extends State<JuegoScreen> {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.black38),
           ),
-          child: const Icon(
-            Icons.info_outline,
-            size: 18,
-            color: Colors.black87,
+          child: Center(
+            child: Text(
+              _simboloRegion(zona.region),
+              style: const TextStyle(fontSize: 18),
+            ),
           ),
         ),
       ),
-      title: Text('Zona ${index + 1} · ${_nombreZonaRegla(zona)}'),
+      title: Text(
+        '${_simboloRegion(zona.region)} Zona ${index + 1} · ${_nombreZonaRegla(zona)}',
+      ),
       subtitle: Text(
         'Puntos: ${points.join(' → ')}',
         key: ValueKey('zone-points-${index + 1}'),
@@ -567,6 +663,39 @@ class _JuegoScreenState extends State<JuegoScreen> {
     );
   }
 
+  Widget _buildPlacementGuide() {
+    final service = widget.multiplayer;
+    final message = _casillaJugada != null
+        ? 'Número $numeroColocar colocado. Confirma para avanzar o deshaz la jugada.'
+        : service != null &&
+              (_esperandoDadosCompartidos ||
+                  service.myTurnIsComplete ||
+                  service.myBoardIsComplete)
+        ? 'Tu jugada está registrada. Espera a que los demás jugadores terminen.'
+        : service != null && !service.canPlay
+        ? 'Sincronizando la partida. Tus números y puntos se conservan.'
+        : posicionesValidas.isEmpty
+        ? 'No hay casillas válidas para el número $numeroColocar. Puedes saltar el turno.'
+        : 'Coloca $numeroColocar en una casilla iluminada junto al ancla $numeroAncla. Toca una casilla para ver su regla.';
+
+    return Container(
+      key: const ValueKey('placement-guide'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        border: Border.all(color: Colors.amber.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   Widget _buildRulesDropdown() {
     final zonas = widget.tablero.zonas;
     final claimsByZone = widget.multiplayer?.game?.zoneClaims ?? const {};
@@ -587,7 +716,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
             )
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
+              constraints: const BoxConstraints(maxHeight: 180),
               child: SingleChildScrollView(
                 child: Column(
                   children: [
@@ -772,7 +901,14 @@ class _JuegoScreenState extends State<JuegoScreen> {
 
   String _mensajeCasilla(int fila, int columna, bool esValida) {
     if (esValida) {
-      return 'Puedes colocar el número $numeroColocar aquí.';
+      final zone = widget.tablero.zonas.firstWhere(
+        (candidate) => candidate.posiciones.any(
+          (position) => position[0] == fila && position[1] == columna,
+        ),
+      );
+      return 'Puedes colocar el número $numeroColocar aquí. '
+          '${_simboloRegion(zone.region)} ${_nombreZonaRegla(zone)}: '
+          '${_descripcionRegla(zone)}';
     }
 
     final valorActual = widget.tablero.celdas[fila][columna];
@@ -1070,6 +1206,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
                 ),
               ),
             ),
+            if (!partidaFinalizada) _buildPlacementGuide(),
             if (_casillaJugada != null)
               const Padding(
                 padding: EdgeInsets.only(top: 4),
@@ -1306,6 +1443,81 @@ class _JuegoScreenState extends State<JuegoScreen> {
   }
 
   Color _colorParaRegion(Region region) {
+    switch (region) {
+      case Region.amarillo:
+        return Colors.amber.shade200;
+      case Region.verde:
+        return Colors.green.shade200;
+      case Region.azul:
+        return Colors.blue.shade200;
+      case Region.lila:
+        return Colors.purple.shade200;
+      case Region.rojo:
+        return Colors.red.shade200;
+      case Region.blanco:
+        return Colors.white;
+      case Region.naranja:
+        return Colors.orange.shade200;
+    }
+  }
+}
+
+class _PlayerBoardPreview extends StatelessWidget {
+  const _PlayerBoardPreview({
+    super.key,
+    required this.boardId,
+    required this.values,
+  });
+
+  final int boardId;
+  final List<int> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final board = crearTablero(boardId);
+    return SizedBox(
+      height: 220,
+      child: GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 7,
+          crossAxisSpacing: 3,
+          mainAxisSpacing: 3,
+        ),
+        itemCount: 49,
+        itemBuilder: (context, index) {
+          final row = index ~/ 7;
+          final column = index % 7;
+          final region = board.zonas
+              .firstWhere(
+                (zone) => zone.posiciones.any(
+                  (position) => position[0] == row && position[1] == column,
+                ),
+              )
+              .region;
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: _regionColor(region),
+              border: Border.all(color: Colors.black26),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Center(
+              child: Text(
+                values[index] == 0 ? '' : '${values[index]}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Color _regionColor(Region region) {
     switch (region) {
       case Region.amarillo:
         return Colors.amber.shade200;

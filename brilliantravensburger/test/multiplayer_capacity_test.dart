@@ -81,6 +81,19 @@ void main() {
       expect(game.zoneClaims[4], hasLength(2));
       expect(game.winnerId, 'player-1');
     });
+
+    test('conserva los tableros compartidos al recibir el estado final', () {
+      final game = MultiplayerGameState.fromJson({
+        'playerBoards': {
+          'player-1': List<int>.filled(49, 2),
+          'player-2': List<int>.filled(49, 5),
+        },
+      });
+
+      expect(game.playerBoards['player-1'], hasLength(49));
+      expect(game.playerBoards['player-1']!.first, 2);
+      expect(game.playerBoards['player-2']!.first, 5);
+    });
   });
 
   group('Partidas multijugador por cantidad de jugadores', () {
@@ -250,6 +263,31 @@ void main() {
         ),
         findsNothing,
       );
+    });
+
+    testWidgets('previsualiza los cuatro tableros antes de crear la sala', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LobbyScreen(token: 'token', username: 'Anfitrión'),
+        ),
+      );
+
+      for (var boardId = 1; boardId <= 4; boardId++) {
+        expect(find.byKey(ValueKey('creation-board-$boardId')), findsOneWidget);
+        expect(
+          find.byKey(ValueKey('creation-board-card-$boardId')),
+          findsOneWidget,
+        );
+      }
+
+      final thirdBoard = find.byKey(const ValueKey('creation-board-3'));
+      await tester.ensureVisible(thirdBoard);
+      await tester.pumpAndSettle();
+      await tester.tap(thirdBoard);
+      await tester.pumpAndSettle();
+      expect(find.text('Tablero 3\nSeleccionado'), findsOneWidget);
     });
   });
 }

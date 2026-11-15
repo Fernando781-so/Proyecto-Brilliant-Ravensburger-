@@ -14,6 +14,7 @@ class MultiplayerPlayer {
     required this.score,
     required this.finished,
     required this.setupComplete,
+    this.board,
   });
 
   final String id;
@@ -23,8 +24,10 @@ class MultiplayerPlayer {
   final int score;
   final bool finished;
   final bool setupComplete;
+  final List<int>? board;
 
   factory MultiplayerPlayer.fromJson(Map<String, dynamic> json) {
+    final rawBoard = json['board'] as List<dynamic>?;
     return MultiplayerPlayer(
       id: '${json['id']}',
       username: '${json['username'] ?? 'Jugador'}',
@@ -33,6 +36,7 @@ class MultiplayerPlayer {
       score: (json['score'] as num?)?.toInt() ?? 0,
       finished: json['finished'] == true,
       setupComplete: json['setupComplete'] == true,
+      board: rawBoard?.map((value) => (value as num).toInt()).toList(),
     );
   }
 }
@@ -90,6 +94,7 @@ class MultiplayerGameState {
     required this.completedPlayerIds,
     required this.zoneClaims,
     required this.winnerId,
+    this.playerBoards = const {},
   });
 
   final int turn;
@@ -99,6 +104,7 @@ class MultiplayerGameState {
   final Set<String> completedPlayerIds;
   final Map<int, List<Map<String, dynamic>>> zoneClaims;
   final String? winnerId;
+  final Map<String, List<int>> playerBoards;
 
   factory MultiplayerGameState.fromJson(Map<String, dynamic> json) {
     final claims = <int, List<Map<String, dynamic>>>{};
@@ -109,6 +115,18 @@ class MultiplayerGameState {
       claims[int.parse(entry.key)] = (entry.value as List<dynamic>)
           .map((claim) => Map<String, dynamic>.from(claim as Map))
           .toList();
+    }
+    final playerBoards = <String, List<int>>{};
+    final rawPlayerBoards = json['playerBoards'];
+    if (rawPlayerBoards is Map) {
+      for (final entry in rawPlayerBoards.entries) {
+        final board = entry.value;
+        if (board is List && board.every((value) => value is num)) {
+          playerBoards['${entry.key}'] = board
+              .map((value) => (value as num).toInt())
+              .toList();
+        }
+      }
     }
 
     return MultiplayerGameState(
@@ -127,6 +145,7 @@ class MultiplayerGameState {
               .toSet(),
       zoneClaims: claims,
       winnerId: json['winnerId']?.toString(),
+      playerBoards: playerBoards,
     );
   }
 }
