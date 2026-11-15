@@ -20,7 +20,10 @@ class JuegoScreen extends StatefulWidget {
   State<JuegoScreen> createState() => _JuegoScreenState();
 }
 
-class _JuegoScreenState extends State<JuegoScreen> {
+enum _GameSidePanel { instructions, players }
+
+class _JuegoScreenState extends State<JuegoScreen>
+    with TickerProviderStateMixin {
   int dado1 = 1;
   int dado2 = 1;
   int anclaSeleccionada = 1;
@@ -32,8 +35,64 @@ class _JuegoScreenState extends State<JuegoScreen> {
   bool _salidaConfirmada = false;
   int _ultimoTurnoCompartido = 0;
   List<int>? _casillaJugada;
+  _GameSidePanel? _openSidePanel;
 
   final Random _random = Random();
+  late final AnimationController _drawerController;
+  late final Animation<Offset> _leftDrawerPosition;
+  late final Animation<Offset> _rightDrawerPosition;
+
+  @override
+  void initState() {
+    super.initState();
+    _drawerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    )..addStatusListener(_onDrawerAnimationStatus);
+    final curve = CurvedAnimation(
+      parent: _drawerController,
+      curve: Curves.easeOutCubic,
+    );
+    _leftDrawerPosition = Tween<Offset>(
+      begin: const Offset(-1, 0),
+      end: Offset.zero,
+    ).animate(curve);
+    _rightDrawerPosition = Tween<Offset>(
+      begin: const Offset(1, 0),
+      end: Offset.zero,
+    ).animate(curve);
+
+    final service = widget.multiplayer;
+    if (service != null) {
+      service.addListener(_onMultiplayerUpdate);
+      final game = service.game;
+      if (game != null) {
+        dado1 = game.dice[0];
+        dado2 = game.dice[1];
+        turno = game.turn;
+        _ultimoTurnoCompartido = game.turn;
+        _esperandoDadosCompartidos =
+            game.completedPlayerIds.contains(service.playerId) ||
+            service.myBoardIsComplete;
+        if (service.room?.status == 'finished') {
+          partidaFinalizada = true;
+          _dialogoFinalMostrado = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _mostrarResultadoMultijugador();
+          });
+        }
+      }
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.tablero.estaCompleto) {
+        _finalizarPartida();
+      } else {
+        _lanzarDadosAutomatico();
+      }
+    });
+  }
 
   int get numeroAncla => anclaSeleccionada == 1 ? dado1 : dado2;
   int get numeroColocar => anclaSeleccionada == 1 ? dado2 : dado1;
@@ -94,48 +153,209 @@ class _JuegoScreenState extends State<JuegoScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    final service = widget.multiplayer;
-    if (service != null) {
-      service.addListener(_onMultiplayerUpdate);
-      final game = service.game;
-      if (game != null) {
-        dado1 = game.dice[0];
-        dado2 = game.dice[1];
-        turno = game.turn;
-        _ultimoTurnoCompartido = game.turn;
-        _esperandoDadosCompartidos =
-            game.completedPlayerIds.contains(service.playerId) ||
-            service.myBoardIsComplete;
-        if (service.room?.status == 'finished') {
-          partidaFinalizada = true;
-          _dialogoFinalMostrado = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _mostrarResultadoMultijugador();
-          });
-        }
-      }
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.tablero.estaCompleto) {
-        _finalizarPartida();
-      } else {
-        _lanzarDadosAutomatico();
-      }
-    });
-  }
-
-  @override
   void dispose() {
     final service = widget.multiplayer;
     if (service != null) {
       service.removeListener(_onMultiplayerUpdate);
       service.dispose();
     }
+    _drawerController.dispose();
     super.dispose();
+  }
+
+  void _toggleSidePanel(_GameSidePanel panel) {
+    if (_openSidePanel == panel) {
+      _closeSidePanel();
+      return;
+    }
+
+    setState(() => _openSidePanel = panel);
+    _drawerController.forward();
+  }
+
+  void _closeSidePanel() {
+    if (_openSidePanel != null) {
+      _drawerController.reverse();
+    }
+  }
+
+  void _onDrawerAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed &&
+        _openSidePanel != null &&
+        mounted) {
+      setState(() => _openSidePanel = null);
+    }
+  }
+
+  Widget _buildDrawerPanel({
+    required bool isLeft,
+    required String title,
+    required Widget content,
+  }) {
+    final radius = Radius.circular(18);
+    return Material(
+      color: Theme.of(context).colorScheme.surface,
+      elevation: 16,
+      clipBehavior: Clip.antiAlias,
+      borderRadius: BorderRadius.only(
+        topLeft: isLeft ? Radius.zero : radius,
+        bottomLeft: isLeft ? Radius.zero : radius,
+        topRight: isLeft ? radius : Radius.zero,
+        bottomRight: isLeft ? radius : Radius.zero,
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: isLeft ? 40 : 0,
+            right: isLeft ? 0 : 40,
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Cerrar panel',
+                      onPressed: _closeSidePanel,
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: content),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerTab({
+    required bool isLeft,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    final radius = BorderRadius.horizontal(
+      left: isLeft ? Radius.zero : const Radius.circular(12),
+      right: isLeft ? const Radius.circular(12) : Radius.zero,
+    );
+    final color = isActive ? Colors.blue.shade700 : Colors.blue.shade50;
+    final foregroundColor = isActive ? Colors.white : Colors.blue.shade900;
+
+    return Material(
+      color: color,
+      elevation: 6,
+      borderRadius: radius,
+      child: InkWell(
+        key: ValueKey(
+          isLeft ? 'drawer-tab-players' : 'drawer-tab-instructions',
+        ),
+        borderRadius: radius,
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: isLeft ? 220 : 210,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: RotatedBox(
+                quarterTurns: 3,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isLeft ? Icons.groups_outlined : Icons.menu_book_outlined,
+                      size: 18,
+                      color: foregroundColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: foregroundColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionsDrawer() {
+    return _buildDrawerPanel(
+      isLeft: false,
+      title: 'Instrucciones',
+      content: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          Text(
+            'Cómo jugar',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (partidaFinalizada)
+                    const Text(
+                      'La partida terminó. Revisa los tableros y puntajes.',
+                    )
+                  else ...[
+                    Text(
+                      'Ancla: $numeroAncla  ·  Número a colocar: $numeroColocar',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Elige una casilla iluminada que toque ortogonalmente el dado ancla. Toca una casilla para consultar su regla.',
+                    ),
+                    _buildPlacementGuide(),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildRulesDropdown(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayersDrawer() {
+    final service = widget.multiplayer;
+    return _buildDrawerPanel(
+      isLeft: true,
+      title: 'Jugadores conectados',
+      content: service == null
+          ? const Center(child: Text('La partida no es multijugador.'))
+          : ListView(
+              padding: const EdgeInsets.all(12),
+              children: [_buildMatchInfoDropdown(service)],
+            ),
+    );
   }
 
   void _onMultiplayerUpdate() {
@@ -702,6 +922,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ExpansionTile(
+        initiallyExpanded: true,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         visualDensity: VisualDensity.compact,
@@ -716,7 +937,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
             )
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 180),
+              constraints: const BoxConstraints(maxHeight: 360),
               child: SingleChildScrollView(
                 child: Column(
                   children: [
@@ -785,6 +1006,7 @@ class _JuegoScreenState extends State<JuegoScreen> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: ExpansionTile(
+        initiallyExpanded: true,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         visualDensity: VisualDensity.compact,
@@ -1006,10 +1228,14 @@ class _JuegoScreenState extends State<JuegoScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope<Object?>(
-      canPop: !_requiereConfirmarSalida,
+      canPop: !_requiereConfirmarSalida && _openSidePanel == null,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _requiereConfirmarSalida) {
-          _solicitarSalida();
+        if (!didPop) {
+          if (_openSidePanel != null) {
+            _closeSidePanel();
+          } else if (_requiereConfirmarSalida) {
+            _solicitarSalida();
+          }
         }
       },
       child: _buildGameScaffold(),
@@ -1069,318 +1295,362 @@ class _JuegoScreenState extends State<JuegoScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            if (esperandoConexion)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  border: Border.all(color: Colors.orange.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      service.isConnected ? Icons.sync : Icons.wifi_off,
-                      color: Colors.orange.shade900,
+            Column(
+              children: [
+                if (esperandoConexion)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade300),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        service.lastError == null
-                            ? service.isConnected
-                                  ? 'Conexión recuperada. Sincronizando la partida; tus puntos y turnos se conservan.'
-                                  : 'Sin conexión. Reconectando; tus puntos y turnos se conservan.'
-                            : 'No se pudo sincronizar la partida: ${service.lastError}',
-                        style: TextStyle(
+                    child: Row(
+                      children: [
+                        Icon(
+                          service.isConnected ? Icons.sync : Icons.wifi_off,
                           color: Colors.orange.shade900,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ),
-                    if (service.lastError != null)
-                      TextButton.icon(
-                        onPressed: service.isConnected
-                            ? service.retryRoomRestore
-                            : null,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Reintentar'),
-                      ),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 8),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    widget.multiplayer == null
-                        ? '🎲 Dados de la mesa (Lanzamiento Automático):'
-                        : '🎲 Dados compartidos:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Toca un dado o usa el botón para elegir el ANCLA:',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildDadoWidget(
-                        valor: dado1,
-                        esAncla: anclaSeleccionada == 1,
-                        onTap: () {
-                          if (service?.canPlay != false &&
-                              _casillaJugada == null) {
-                            setState(() => anclaSeleccionada = 1);
-                          }
-                        },
-                      ),
-                      ElevatedButton.icon(
-                        onPressed:
-                            service?.canPlay == false || _casillaJugada != null
-                            ? null
-                            : () {
-                                setState(() {
-                                  anclaSeleccionada = anclaSeleccionada == 1
-                                      ? 2
-                                      : 1;
-                                });
-                              },
-                        icon: const Icon(Icons.swap_horiz, size: 20),
-                        label: const Text('Cambiar Ancla'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.blue.shade900,
-                          elevation: 2,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            service.lastError == null
+                                ? service.isConnected
+                                      ? 'Conexión recuperada. Sincronizando la partida; tus puntos y turnos se conservan.'
+                                      : 'Sin conexión. Reconectando; tus puntos y turnos se conservan.'
+                                : 'No se pudo sincronizar la partida: ${service.lastError}',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
+                        if (service.lastError != null)
+                          TextButton.icon(
+                            onPressed: service.isConnected
+                                ? service.retryRoomRestore
+                                : null,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reintentar'),
+                          ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        widget.multiplayer == null
+                            ? '🎲 Dados de la mesa (Lanzamiento Automático):'
+                            : '🎲 Dados compartidos:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
                       ),
-                      _buildDadoWidget(
-                        valor: dado2,
-                        esAncla: anclaSeleccionada == 2,
-                        onTap: () {
-                          if (service?.canPlay != false &&
-                              _casillaJugada == null) {
-                            setState(() => anclaSeleccionada = 2);
-                          }
-                        },
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Toca un dado o usa el botón para elegir el ANCLA:',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildDadoWidget(
+                            valor: dado1,
+                            esAncla: anclaSeleccionada == 1,
+                            onTap: () {
+                              if (service?.canPlay != false &&
+                                  _casillaJugada == null) {
+                                setState(() => anclaSeleccionada = 1);
+                              }
+                            },
+                          ),
+                          ElevatedButton.icon(
+                            onPressed:
+                                service?.canPlay == false ||
+                                    _casillaJugada != null
+                                ? null
+                                : () {
+                                    setState(() {
+                                      anclaSeleccionada = anclaSeleccionada == 1
+                                          ? 2
+                                          : 1;
+                                    });
+                                  },
+                            icon: const Icon(Icons.swap_horiz, size: 20),
+                            label: const Text('Cambiar Ancla'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.blue.shade900,
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                          _buildDadoWidget(
+                            valor: dado2,
+                            esAncla: anclaSeleccionada == 2,
+                            onTap: () {
+                              if (service?.canPlay != false &&
+                                  _casillaJugada == null) {
+                                setState(() => anclaSeleccionada = 2);
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            _buildRulesDropdown(),
-            if (widget.multiplayer != null)
-              _buildMatchInfoDropdown(widget.multiplayer!),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(
-                'Ancla: $numeroAncla ➔ Colocarás: $numeroColocar en una casilla iluminada',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.black87,
                 ),
-              ),
-            ),
-            if (!partidaFinalizada) _buildPlacementGuide(),
-            if (_casillaJugada != null)
-              const Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: Text(
-                  '¡Número Colocado!',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: AspectRatio(
+                      aspectRatio: 1.0,
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 7,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 4,
+                            ),
+                        itemCount: 49,
+                        itemBuilder: (context, index) {
+                          int fila = index ~/ 7;
+                          int columna = index % 7;
+                          int valor = widget.tablero.celdas[fila][columna];
+                          Region region = _obtenerRegionCasilla(fila, columna);
+
+                          bool esValida = posicionesValidas.any(
+                            (p) => p[0] == fila && p[1] == columna,
+                          );
+
+                          return Tooltip(
+                            key: ValueKey('casilla-juego-$fila-$columna'),
+                            message: _mensajeCasilla(fila, columna, esValida),
+                            preferBelow: false,
+                            waitDuration: const Duration(milliseconds: 350),
+                            child: MouseRegion(
+                              cursor: esValida
+                                  ? SystemMouseCursors.click
+                                  : SystemMouseCursors.basic,
+                              child: GestureDetector(
+                                onTap: () => _alTocarCasilla(fila, columna),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  decoration: BoxDecoration(
+                                    color: esValida
+                                        ? Colors.amber.shade300
+                                        : _colorParaRegion(region),
+                                    border: Border.all(
+                                      color: esValida
+                                          ? Colors.amber.shade900
+                                          : Colors.black26,
+                                      width: esValida ? 3.5 : 1.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: esValida
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.amber.withOpacity(
+                                                0.6,
+                                              ),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: esValida
+                                        ? Text(
+                                            '+$numeroColocar',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.amber.shade900,
+                                            ),
+                                          )
+                                        : Text(
+                                            valor == 0 ? '' : '$valor',
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: GridView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          crossAxisSpacing: 4,
-                          mainAxisSpacing: 4,
-                        ),
-                    itemCount: 49,
-                    itemBuilder: (context, index) {
-                      int fila = index ~/ 7;
-                      int columna = index % 7;
-                      int valor = widget.tablero.celdas[fila][columna];
-                      Region region = _obtenerRegionCasilla(fila, columna);
-
-                      bool esValida = posicionesValidas.any(
-                        (p) => p[0] == fila && p[1] == columna,
-                      );
-
-                      return Tooltip(
-                        key: ValueKey('casilla-juego-$fila-$columna'),
-                        message: _mensajeCasilla(fila, columna, esValida),
-                        preferBelow: false,
-                        waitDuration: const Duration(milliseconds: 350),
-                        child: MouseRegion(
-                          cursor: esValida
-                              ? SystemMouseCursors.click
-                              : SystemMouseCursors.basic,
-                          child: GestureDetector(
-                            onTap: () => _alTocarCasilla(fila, columna),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              decoration: BoxDecoration(
-                                color: esValida
-                                    ? Colors.amber.shade300
-                                    : _colorParaRegion(region),
-                                border: Border.all(
-                                  color: esValida
-                                      ? Colors.amber.shade900
-                                      : Colors.black26,
-                                  width: esValida ? 3.5 : 1.0,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                                boxShadow: esValida
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.amber.withOpacity(0.6),
-                                          blurRadius: 8,
-                                          spreadRadius: 2,
-                                        ),
-                                      ]
-                                    : null,
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 50,
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                _casillaJugada == null ||
+                                    partidaFinalizada ||
+                                    service?.canPlay == false
+                                ? null
+                                : _deshacerJugada,
+                            icon: const Icon(Icons.undo),
+                            label: const Text('Deshacer'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red.shade700,
+                              side: BorderSide(
+                                color: Colors.red.shade300,
+                                width: 2,
                               ),
-                              child: Center(
-                                child: esValida
-                                    ? Text(
-                                        '+$numeroColocar',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.amber.shade900,
-                                        ),
-                                      )
-                                    : Text(
-                                        valor == 0 ? '' : '$valor',
-                                        style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 50,
+                          child: ElevatedButton.icon(
+                            onPressed: partidaFinalizada
+                                ? null
+                                : esperandoConexion
+                                ? null
+                                : esperandoJugadores
+                                ? null
+                                : _casillaJugada == null
+                                ? _confirmarSaltarTurno
+                                : _siguienteTurno,
+                            icon: Icon(
+                              esperandoJugadores
+                                  ? Icons.hourglass_top
+                                  : _casillaJugada == null
+                                  ? Icons.skip_next
+                                  : Icons.arrow_forward,
+                            ),
+                            label: Text(
+                              esperandoConexion
+                                  ? 'RECONECTANDO...'
+                                  : esperandoJugadores
+                                  ? 'ESPERANDO A LOS JUGADORES'
+                                  : _casillaJugada == null
+                                  ? 'SALTAR TURNO'
+                                  : 'Avanzar Turno',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _casillaJugada == null
+                                  ? Colors.orange.shade700
+                                  : Colors.green.shade600,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_openSidePanel != null)
+              Positioned.fill(
+                child: FadeTransition(
+                  key: const ValueKey('drawer-backdrop'),
+                  opacity: _drawerController,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _closeSidePanel,
+                    child: const ColoredBox(color: Colors.black54),
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: OutlinedButton.icon(
-                        onPressed:
-                            _casillaJugada == null ||
-                                partidaFinalizada ||
-                                service?.canPlay == false
-                            ? null
-                            : _deshacerJugada,
-                        icon: const Icon(Icons.undo),
-                        label: const Text('Deshacer'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
-                          side: BorderSide(
-                            color: Colors.red.shade300,
-                            width: 2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
+            if (_openSidePanel == _GameSidePanel.players)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: min(MediaQuery.of(context).size.width * 0.88, 380.0),
+                child: SlideTransition(
+                  position: _leftDrawerPosition,
+                  child: _buildPlayersDrawer(),
+                ),
+              ),
+            if (_openSidePanel == _GameSidePanel.instructions)
+              Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: min(MediaQuery.of(context).size.width * 0.88, 380.0),
+                child: SlideTransition(
+                  position: _rightDrawerPosition,
+                  child: _buildInstructionsDrawer(),
+                ),
+              ),
+            if (widget.multiplayer != null)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 40,
+                child: Center(
+                  child: _buildDrawerTab(
+                    isLeft: true,
+                    label: 'Jugadores conectados',
+                    isActive: _openSidePanel == _GameSidePanel.players,
+                    onTap: () => _toggleSidePanel(_GameSidePanel.players),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        onPressed: partidaFinalizada
-                            ? null
-                            : esperandoConexion
-                            ? null
-                            : esperandoJugadores
-                            ? null
-                            : _casillaJugada == null
-                            ? _confirmarSaltarTurno
-                            : _siguienteTurno,
-                        icon: Icon(
-                          esperandoJugadores
-                              ? Icons.hourglass_top
-                              : _casillaJugada == null
-                              ? Icons.skip_next
-                              : Icons.arrow_forward,
-                        ),
-                        label: Text(
-                          esperandoConexion
-                              ? 'RECONECTANDO...'
-                              : esperandoJugadores
-                              ? 'ESPERANDO A LOS JUGADORES'
-                              : _casillaJugada == null
-                              ? 'SALTAR TURNO'
-                              : 'Avanzar Turno',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _casillaJugada == null
-                              ? Colors.orange.shade700
-                              : Colors.green.shade600,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
+              ),
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 40,
+              child: Center(
+                child: _buildDrawerTab(
+                  isLeft: false,
+                  label: 'Instrucciones',
+                  isActive: _openSidePanel == _GameSidePanel.instructions,
+                  onTap: () => _toggleSidePanel(_GameSidePanel.instructions),
+                ),
               ),
             ),
           ],
