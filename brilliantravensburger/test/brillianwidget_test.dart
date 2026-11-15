@@ -106,7 +106,7 @@ Future<void> _jugarPrimerMovimientoDisponible(WidgetTester tester) async {
         .isNotEmpty) {
       await tester.tap(_primeraCasillaValida());
       await tester.pumpAndSettle();
-      expect(find.text('¡Número Colocado!'), findsOneWidget);
+      expect(find.text('Avanzar Turno'), findsOneWidget);
 
       await tester.tap(find.text('Avanzar Turno'));
       await tester.pumpAndSettle();
@@ -281,7 +281,12 @@ void main() {
           find.text('Brilliant - Tablero $numeroTablero - Turno 1'),
           findsOneWidget,
         );
+        expect(find.textContaining('Ancla:'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+        await tester.pumpAndSettle();
         expect(find.textContaining('Ancla:'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+        await tester.pumpAndSettle();
 
         await _jugarPrimerMovimientoDisponible(tester);
 
@@ -324,15 +329,21 @@ void main() {
         find.text('🎲 Dados de la mesa (Lanzamiento Automático):'),
         findsOneWidget,
       );
+      expect(find.textContaining('Ancla:'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+      await tester.pumpAndSettle();
       expect(find.textContaining('Ancla:'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+      await tester.pumpAndSettle();
 
       await tester.tap(_primeraCasillaValida());
       await tester.pumpAndSettle();
-      expect(find.text('¡Número Colocado!'), findsOneWidget);
+      expect(find.text('Avanzar Turno'), findsOneWidget);
 
       await tester.tap(find.text('Deshacer'));
       await tester.pumpAndSettle();
-      expect(find.text('¡Número Colocado!'), findsNothing);
+      expect(find.text('Avanzar Turno'), findsNothing);
+      expect(find.text('SALTAR TURNO'), findsOneWidget);
       expect(find.text('Brilliant - Tablero 3 - Turno 1'), findsOneWidget);
 
       await tester.tap(_primeraCasillaValida());
@@ -427,6 +438,11 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    expect(find.text('Reglas y puntos por zona'), findsNothing);
+    expect(find.byKey(const ValueKey('placement-guide')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('drawer-backdrop')), findsOneWidget);
     expect(find.text('Reglas y puntos por zona'), findsOneWidget);
     expect(
       find.descendant(
@@ -435,11 +451,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Anaranjado superior'), findsNothing);
-
-    await tester.tap(find.byType(ExpansionTile).first);
-    await tester.pumpAndSettle();
-
     final board = crearTablero(4);
     final upperOrangeIndex = board.zonas.indexWhere(
       (zone) => zone.region == Region.naranja && zone.valorMinimo == 4,
@@ -491,6 +502,11 @@ void main() {
       findsWidgets,
     );
     expect(find.textContaining('Zona '), findsWidgets);
+
+    await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('drawer-backdrop')), findsNothing);
+    expect(find.text('Reglas y puntos por zona'), findsNothing);
   });
 
   testWidgets('no entra al juego sin confirmar sus números iniciales', (
@@ -629,10 +645,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('drawer-tab-players')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('drawer-backdrop')), findsOneWidget);
     final menu = find.text('Jugadores conectados y zonas capturadas');
     await tester.ensureVisible(menu);
-    await tester.tap(menu);
-    await tester.pumpAndSettle();
 
     expect(find.text('3 conectados · 2 zonas · Meta: 30 pts'), findsOneWidget);
     expect(find.text('Fuera'), findsNothing);
@@ -653,6 +671,11 @@ void main() {
     expect(find.textContaining('Zona 1 ·'), findsOneWidget);
     expect(find.text('+6 pts'), findsOneWidget);
     expect(find.text('+4 pts'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('drawer-backdrop')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('drawer-backdrop')), findsNothing);
+    expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
   });
 
   testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
