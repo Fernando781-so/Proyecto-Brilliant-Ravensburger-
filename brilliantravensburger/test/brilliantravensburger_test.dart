@@ -267,11 +267,64 @@ void main() {
   // 3. REGLAS DE COLOCACIÓN POR REGIÓN
   // ========================================================
   group('Reglas de colocación por Región (esColocacionPermitidaEnRegion)', () {
-    test(' Amarillo permite hasta 5 elementos', () {
-      List<List<int>> celdas = List.generate(7, (_) => List.filled(7, 0));
-      Tablero tablero = Tablero(celdas: celdas, zonas: zonas);
+    test('Amarillo permite seis valores distintos y suma la zona válida', () {
+      final tablero = crearTablero(3);
+      final zonaAmarilla = tablero.zonas.singleWhere(
+        (zona) => zona.region == Region.amarillo,
+      );
 
-      expect(esColocacionPermitidaEnRegion(tablero, 0, 0, 1), isTrue);
+      expect(zonaAmarilla.posiciones.length, 6);
+      for (var index = 0; index < zonaAmarilla.posiciones.length - 1; index++) {
+        final [fila, columna] = zonaAmarilla.posiciones[index];
+        tablero.celdas[fila][columna] = index + 1;
+      }
+
+      final [fila, columna] = zonaAmarilla.posiciones.last;
+      expect(esColocacionPermitidaEnRegion(tablero, fila, columna, 6), isTrue);
+      expect(esColocacionPermitidaEnRegion(tablero, fila, columna, 1), isFalse);
+
+      tablero.celdas[fila][columna] = 6;
+      expect(zonaAmarilla.esValida(tablero), isTrue);
+      tablero.celdas[fila][columna] = 1;
+      expect(zonaAmarilla.esValida(tablero), isFalse);
+    });
+
+    test('Todas las zonas amarillas exigen valores distintos al puntuarse', () {
+      for (final boardId in [1, 2, 3, 4]) {
+        final tablero = crearTablero(boardId);
+        final zonaAmarilla = tablero.zonas.singleWhere(
+          (zona) => zona.region == Region.amarillo,
+        );
+
+        for (var index = 0; index < zonaAmarilla.posiciones.length; index++) {
+          final [fila, columna] = zonaAmarilla.posiciones[index];
+          tablero.celdas[fila][columna] = index + 1;
+        }
+
+        expect(
+          zonaAmarilla.esValida(tablero),
+          isTrue,
+          reason: 'Tablero $boardId',
+        );
+        expect(
+          zonaAmarilla.obtenerPuntuacion(tablero),
+          zonaAmarilla.bolsaPuntos.first,
+          reason: 'Tablero $boardId',
+        );
+
+        final [fila, columna] = zonaAmarilla.posiciones.last;
+        tablero.celdas[fila][columna] = 1;
+        expect(
+          zonaAmarilla.esValida(tablero),
+          isFalse,
+          reason: 'Tablero $boardId',
+        );
+        expect(
+          zonaAmarilla.obtenerPuntuacion(tablero),
+          0,
+          reason: 'Tablero $boardId',
+        );
+      }
     });
 
     test(' Verde permite cualquier número', () {

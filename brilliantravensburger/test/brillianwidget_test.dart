@@ -177,6 +177,49 @@ void main() {
     );
   });
 
+  testWidgets('muestra las reglas y símbolos durante la colocación inicial', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester, 3);
+
+    await tester.tap(find.byTooltip('Ver reglas del tablero 3'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reglas del tablero 3'), findsOneWidget);
+    expect(find.text('Morado (XO)'), findsNWidgets(2));
+    expect(find.text('Azul (=)'), findsOneWidget);
+    expect(find.text('Rojo (≠)'), findsNWidgets(2));
+    expect(
+      find.textContaining('columnas verticales amarillas'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('5 casillas grises'), findsOneWidget);
+  });
+
+  testWidgets('describe todas las zonas agrupadas del tablero 4', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+    await _elegirTablero(tester, 4);
+
+    await tester.tap(find.byTooltip('Ver reglas del tablero 4'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Morado (XO)'), findsOneWidget);
+    expect(find.text('Azul (=)'), findsOneWidget);
+    expect(find.text('Rojo (≠)'), findsNWidgets(2));
+    expect(find.text('Naranja (1-3)'), findsOneWidget);
+    expect(find.text('Naranja (4-6)'), findsOneWidget);
+    expect(find.text('Amarillo (≠)'), findsOneWidget);
+    expect(find.text('Verde (?)'), findsOneWidget);
+    expect(find.textContaining('6 casillas amarillas'), findsOneWidget);
+    expect(find.textContaining('6 casillas azules'), findsOneWidget);
+    expect(find.textContaining('4 casillas verdes'), findsOneWidget);
+  });
+
   testWidgets('permite elegir un número desde una casilla inicial', (
     tester,
   ) async {
@@ -444,6 +487,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('drawer-backdrop')), findsOneWidget);
     expect(find.text('Reglas y puntos por zona'), findsOneWidget);
+    expect(find.text('Reglas del tablero 4'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('drawer-tab-instructions')),
+        matching: find.byType(Text),
+      ),
+      findsNothing,
+    );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('placement-guide')),
@@ -648,6 +699,20 @@ void main() {
     expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('drawer-tab-players')));
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('drawer-tab-players')),
+        matching: find.byType(Text),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('drawer-tab-players')),
+        matching: find.byIcon(Icons.groups_outlined),
+      ),
+      findsOneWidget,
+    );
     expect(find.byKey(const ValueKey('drawer-backdrop')), findsOneWidget);
     final menu = find.text('Jugadores conectados y zonas capturadas');
     await tester.ensureVisible(menu);
@@ -678,7 +743,7 @@ void main() {
     expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
   });
 
-  testWidgets('finaliza una partida con el puntaje al llenar el tablero', (
+  testWidgets('finaliza y no puntúa la zona amarilla con números repetidos', (
     tester,
   ) async {
     _configurarSuperficie(tester);
@@ -691,7 +756,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('¡Partida finalizada!'), findsOneWidget);
-    expect(find.text('Puntaje total: 30 pts'), findsOneWidget);
+    expect(find.text('Puntaje total: 22 pts'), findsOneWidget);
     expect(find.text('Partida finalizada'), findsOneWidget);
     expect(find.text('Sin movimientos'), findsNothing);
   });
