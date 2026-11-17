@@ -75,9 +75,6 @@ class Zona {
       if (valorMinimo == null || valorMaximo == null) return false;
       return _todosEnRango(valores, valorMinimo!, valorMaximo!);
     }
-    if (region == Region.amarillo && posiciones.length != 5) {
-      return true;
-    }
     return esReglaCumplida(region, valores);
   }
 
@@ -106,7 +103,7 @@ bool esReglaCumplida(Region region, List<int> valores) {
 
   switch (region) {
     case Region.amarillo:
-      return valores.length == 5;
+      return valores.toSet().length == valores.length;
 
     case Region.azul:
       return todosMismoNumero(valores);
@@ -764,7 +761,7 @@ bool esColocacionPermitidaEnRegion(
 
   switch (zonaActual.region) {
     case Region.amarillo:
-      return futurosValores.length <= 5;
+      return futurosValores.toSet().length == futurosValores.length;
 
     case Region.verde:
       return true;

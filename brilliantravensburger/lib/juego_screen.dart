@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 import 'multiplayer_service.dart';
+import 'reglas_tablero_guide.dart';
 
 class JuegoScreen extends StatefulWidget {
   final Tablero tablero;
@@ -265,31 +266,14 @@ class _JuegoScreenState extends State<JuegoScreen>
         onTap: onTap,
         child: SizedBox(
           width: 40,
-          height: isLeft ? 220 : 210,
+          height: 48,
           child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: RotatedBox(
-                quarterTurns: 3,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isLeft ? Icons.groups_outlined : Icons.menu_book_outlined,
-                      size: 18,
-                      color: foregroundColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: foregroundColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
+            child: Tooltip(
+              message: label,
+              child: Icon(
+                isLeft ? Icons.groups_outlined : Icons.menu_book_outlined,
+                size: 22,
+                color: foregroundColor,
               ),
             ),
           ),
@@ -299,6 +283,8 @@ class _JuegoScreenState extends State<JuegoScreen>
   }
 
   Widget _buildInstructionsDrawer() {
+    final boardId =
+        widget.multiplayer?.room?.boardId ?? widget.tableroSeleccionado ?? 1;
     return _buildDrawerPanel(
       isLeft: false,
       title: 'Instrucciones',
@@ -336,6 +322,13 @@ class _JuegoScreenState extends State<JuegoScreen>
                 ],
               ),
             ),
+          ),
+          ExpansionTile(
+            key: const ValueKey('board-rules-expansion'),
+            leading: const Icon(Icons.palette_outlined),
+            title: Text('Reglas del tablero $boardId'),
+            subtitle: const Text('Símbolos y conexiones por color'),
+            children: [ReglasTableroGuide(boardId: boardId)],
           ),
           const SizedBox(height: 8),
           _buildRulesDropdown(),
@@ -788,7 +781,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   String _descripcionRegla(Zona zona) {
     switch (zona.region) {
       case Region.amarillo:
-        return 'Máximo 5 números por zona.';
+        return 'Todos los números de la zona deben ser diferentes.';
       case Region.verde:
         return 'Se puede colocar cualquier número.';
       case Region.azul:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
 import 'multiplayer_service.dart';
+import 'reglas_tablero_guide.dart';
 import 'tablero_preview.dart';
 
 class InicioScreen extends StatefulWidget {
@@ -207,6 +208,50 @@ class _InicioScreenState extends State<InicioScreen> {
       _posicionExplosion = null;
       _tableroSeleccionado = numero;
     });
+  }
+
+  void _mostrarReglasDelTablero() {
+    final boardId = _tableroSeleccionado ?? 1;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.85,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Reglas del tablero $boardId',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Cerrar reglas',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: ReglasTableroGuide(boardId: boardId),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _mostrarMenuSeleccionNumero(int fila, int columna) {
@@ -434,12 +479,18 @@ class _InicioScreenState extends State<InicioScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         'Tablero $_tableroSeleccionado',
                         style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        tooltip: 'Ver reglas del tablero $_tableroSeleccionado',
+                        onPressed: _mostrarReglasDelTablero,
+                        icon: const Icon(Icons.menu_book_outlined),
                       ),
                       TextButton.icon(
                         onPressed: widget.multiplayer == null
