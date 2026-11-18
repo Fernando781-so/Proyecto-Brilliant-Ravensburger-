@@ -37,6 +37,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   int _ultimoTurnoCompartido = 0;
   List<int>? _casillaJugada;
   _GameSidePanel? _openSidePanel;
+  final Set<String> _avisosZonasCapturadas = {};
 
   final Random _random = Random();
   late final AnimationController _drawerController;
@@ -68,6 +69,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       service.addListener(_onMultiplayerUpdate);
       final game = service.game;
       if (game != null) {
+        _avisosZonasCapturadas.addAll(_idsReclamos(game.zoneClaims));
         dado1 = game.dice[0];
         dado2 = game.dice[1];
         turno = game.turn;
@@ -114,7 +116,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       builder: (dialogContext) => AlertDialog(
         title: const Text('¿Salir de la partida?'),
         content: const Text(
-          'Tienes 10 segundos para volver a conectarte. Si no regresas en ese plazo, quedarás fuera; el último jugador que permanezca conectado será el ganador.',
+          'Tienes 5 minutos para volver a conectarte. Si no regresas en ese plazo, quedarás fuera; el último jugador que permanezca conectado será el ganador.',
         ),
         actions: [
           TextButton(
@@ -289,6 +291,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       isLeft: false,
       title: 'Instrucciones',
       content: ListView(
+        key: const ValueKey('instructions-drawer-list'),
         padding: const EdgeInsets.all(12),
         children: [
           Text(
@@ -323,13 +326,7 @@ class _JuegoScreenState extends State<JuegoScreen>
               ),
             ),
           ),
-          ExpansionTile(
-            key: const ValueKey('board-rules-expansion'),
-            leading: const Icon(Icons.palette_outlined),
-            title: Text('Reglas del tablero $boardId'),
-            subtitle: const Text('Símbolos y conexiones por color'),
-            children: [ReglasTableroGuide(boardId: boardId)],
-          ),
+          ReglasTableroGuide(boardId: boardId),
           const SizedBox(height: 8),
           _buildRulesDropdown(),
         ],
@@ -356,6 +353,15 @@ class _JuegoScreenState extends State<JuegoScreen>
     final game = service?.game;
     if (!mounted || service == null || game == null) return;
 
+    final nuevosReclamos = <MapEntry<int, Map<String, dynamic>>>[];
+    for (final entry in game.zoneClaims.entries) {
+      for (final claim in entry.value) {
+        if (_avisosZonasCapturadas.add(_idReclamo(entry.key, claim))) {
+          nuevosReclamos.add(MapEntry(entry.key, claim));
+        }
+      }
+    }
+
     final nuevoTurno = game.turn != _ultimoTurnoCompartido;
     setState(() {
       turno = game.turn;
@@ -377,6 +383,37 @@ class _JuegoScreenState extends State<JuegoScreen>
       }
     });
 
+    for (final reclamo in nuevosReclamos) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        final playerId = '${reclamo.value['playerId'] ?? ''}';
+        var username = reclamo.value['username']?.toString();
+        if (username == null) {
+          for (final player
+              in service.room?.players ?? const <MultiplayerPlayer>[]) {
+            if (player.id == playerId) {
+              username = player.username;
+              break;
+            }
+          }
+        }
+        final zoneIndex = reclamo.key;
+        final zoneName =
+            zoneIndex >= 0 && zoneIndex < widget.tablero.zonas.length
+            ? _nombreRegion(widget.tablero.zonas[zoneIndex].region)
+            : 'zona';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${username ?? 'Un jugador'} tomó la Zona ${zoneIndex + 1} ($zoneName).',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      });
+    }
+
     if (partidaFinalizada && !_dialogoFinalMostrado) {
       _dialogoFinalMostrado = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -389,6 +426,18 @@ class _JuegoScreenState extends State<JuegoScreen>
         if (mounted) _mostrarAvisoSinMovimientos();
       });
     }
+  }
+
+  Set<String> _idsReclamos(Map<int, List<Map<String, dynamic>>> zoneClaims) {
+    return {
+      for (final entry in zoneClaims.entries)
+        for (final claim in entry.value) _idReclamo(entry.key, claim),
+    };
+  }
+
+  String _idReclamo(int zoneIndex, Map<String, dynamic> claim) {
+    final playerId = claim['playerId'] ?? claim['username'] ?? 'unknown';
+    return '$zoneIndex:$playerId';
   }
 
   void _mostrarResultadoMultijugador() {
@@ -460,50 +509,10 @@ class _JuegoScreenState extends State<JuegoScreen>
 
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Tableros de la partida'),
-        content: SizedBox(
-          width: 420,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (boards.isEmpty)
-                  const Text('No hay tableros compartidos para mostrar.')
-                else
-                  for (final player in players)
-                    if (boards.containsKey(player.id)) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 4),
-                        child: Text(
-                          '${player.username} · ${player.score} pts',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      _PlayerBoardPreview(
-                        key: ValueKey('final-board-${player.id}'),
-                        boardId: boardId,
-                        values: boards[player.id]!,
-                      ),
-                    ],
-                if (players.any((player) => !boards.containsKey(player.id)))
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Los tableros que faltan no fueron compartidos por el servidor.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cerrar'),
-          ),
-        ],
+      builder: (dialogContext) => _FinalBoardsDialog(
+        boardId: boardId,
+        players: players,
+        boards: boards,
       ),
     );
   }
@@ -667,7 +676,10 @@ class _JuegoScreenState extends State<JuegoScreen>
     final casilla = _casillaJugada;
     if (casilla == null ||
         partidaFinalizada ||
-        widget.multiplayer?.canPlay == false) {
+        widget.multiplayer?.canPlay == false ||
+        _esperandoDadosCompartidos ||
+        widget.multiplayer?.myTurnIsComplete == true ||
+        widget.multiplayer?.myBoardIsComplete == true) {
       return;
     }
 
@@ -788,7 +800,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       case Region.blanco:
         return 'Todos los números de la zona deben ser iguales.';
       case Region.lila:
-        return 'Se permiten como máximo 2 números distintos.';
+        return 'La zona debe contener exactamente dos números distintos.';
       case Region.rojo:
         return 'No se puede repetir ningún número.';
       case Region.naranja:
@@ -826,28 +838,8 @@ class _JuegoScreenState extends State<JuegoScreen>
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      leading: Tooltip(
-        message: _descripcionRegla(zona),
-        triggerMode: TooltipTriggerMode.tap,
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: _colorParaRegion(zona.region),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black38),
-          ),
-          child: Center(
-            child: Text(
-              _simboloRegion(zona.region),
-              style: const TextStyle(fontSize: 18),
-            ),
-          ),
-        ),
-      ),
-      title: Text(
-        '${_simboloRegion(zona.region)} Zona ${index + 1} · ${_nombreZonaRegla(zona)}',
-      ),
+      leading: const Icon(Icons.stars_outlined),
+      title: Text('Zona ${index + 1}'),
       subtitle: Text(
         'Puntos: ${points.join(' → ')}',
         key: ValueKey('zone-points-${index + 1}'),
@@ -920,8 +912,8 @@ class _JuegoScreenState extends State<JuegoScreen>
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         visualDensity: VisualDensity.compact,
         leading: const Icon(Icons.hearing),
-        title: const Text('Reglas y puntos por zona'),
-        subtitle: Text('${zonas.length} zonas · toca el color para la regla'),
+        title: const Text('Puntos por zona'),
+        subtitle: Text('${zonas.length} zonas'),
         children: [
           if (zonas.isEmpty)
             const ListTile(
@@ -1511,10 +1503,12 @@ class _JuegoScreenState extends State<JuegoScreen>
                         child: SizedBox(
                           height: 50,
                           child: OutlinedButton.icon(
+                            key: const ValueKey('undo-move-button'),
                             onPressed:
                                 _casillaJugada == null ||
                                     partidaFinalizada ||
-                                    service?.canPlay == false
+                                    service?.canPlay == false ||
+                                    esperandoJugadores
                                 ? null
                                 : _deshacerJugada,
                             icon: const Icon(Icons.undo),
@@ -1725,21 +1719,150 @@ class _JuegoScreenState extends State<JuegoScreen>
   }
 }
 
+class _FinalBoardsDialog extends StatefulWidget {
+  const _FinalBoardsDialog({
+    required this.boardId,
+    required this.players,
+    required this.boards,
+  });
+
+  final int boardId;
+  final List<MultiplayerPlayer> players;
+  final Map<String, List<int>> boards;
+
+  @override
+  State<_FinalBoardsDialog> createState() => _FinalBoardsDialogState();
+}
+
+class _FinalBoardsDialogState extends State<_FinalBoardsDialog> {
+  String? _selectedPlayerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedPlayer = widget.players
+        .where((player) => player.id == _selectedPlayerId)
+        .firstOrNull;
+    final maxHeight = min(MediaQuery.sizeOf(context).height * 0.62, 560.0);
+
+    return AlertDialog(
+      title: Text(
+        selectedPlayer == null
+            ? 'Tableros de la partida'
+            : 'Tablero de ${selectedPlayer.username}',
+      ),
+      content: SizedBox(
+        width: 420,
+        height: maxHeight,
+        child: selectedPlayer == null
+            ? _buildBoardList()
+            : _buildSelectedBoard(selectedPlayer),
+      ),
+      actions: [
+        if (_selectedPlayerId != null)
+          TextButton(
+            onPressed: () => setState(() => _selectedPlayerId = null),
+            child: const Text('Volver a los tableros'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBoardList() {
+    if (widget.boards.isEmpty) {
+      return const Center(
+        child: Text('No hay tableros compartidos para mostrar.'),
+      );
+    }
+
+    return ListView(
+      children: [
+        for (final player in widget.players)
+          if (widget.boards.containsKey(player.id))
+            Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: ValueKey('select-final-board-${player.id}'),
+                onTap: () => setState(() => _selectedPlayerId = player.id),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '${player.username} · ${player.score} pts',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      _PlayerBoardPreview(
+                        key: ValueKey('final-board-${player.id}'),
+                        boardId: widget.boardId,
+                        values: widget.boards[player.id]!,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        if (widget.players.any(
+          (player) => !widget.boards.containsKey(player.id),
+        ))
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'Los tableros que faltan no fueron compartidos por el servidor.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedBoard(MultiplayerPlayer player) {
+    final values = widget.boards[player.id];
+    if (values == null) {
+      return const Center(
+        child: Text('Este tablero no fue compartido por el servidor.'),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          Text('${player.username} · ${player.score} pts'),
+          const SizedBox(height: 12),
+          _PlayerBoardPreview(
+            key: ValueKey('final-board-detail-${player.id}'),
+            boardId: widget.boardId,
+            values: values,
+            height: min(MediaQuery.sizeOf(context).width * 0.82, 360.0),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PlayerBoardPreview extends StatelessWidget {
   const _PlayerBoardPreview({
     super.key,
     required this.boardId,
     required this.values,
+    this.height = 220,
   });
 
   final int boardId;
   final List<int> values;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final board = crearTablero(boardId);
     return SizedBox(
-      height: 220,
+      height: height,
       child: GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(

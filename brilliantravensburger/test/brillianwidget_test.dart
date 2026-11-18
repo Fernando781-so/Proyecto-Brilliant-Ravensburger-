@@ -9,6 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeMultiplayerService implements MultiplayerService {
   _FakeMultiplayerService({required this.room, required this.game});
 
+  final Set<VoidCallback> _listeners = {};
+  bool turnComplete = false;
+  bool boardComplete = false;
+
   @override
   MultiplayerRoom? room;
 
@@ -34,23 +38,43 @@ class _FakeMultiplayerService implements MultiplayerService {
   List<int>? get myBoard => null;
 
   @override
-  bool get myTurnIsComplete => false;
+  bool get myTurnIsComplete => turnComplete;
 
   @override
-  bool get myBoardIsComplete => false;
+  bool get myBoardIsComplete => boardComplete;
 
   @override
   bool get mySetupIsComplete =>
       game?.setupCompletePlayerIds.contains(playerId) ?? false;
 
   @override
-  void addListener(VoidCallback listener) {}
+  void addListener(VoidCallback listener) => _listeners.add(listener);
 
   @override
-  void removeListener(VoidCallback listener) {}
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
 
   @override
-  void dispose() {}
+  void dispose() => _listeners.clear();
+
+  @override
+  Future<void> completeTurn({
+    required List<int> board,
+    required List<int> completedZones,
+    required bool finished,
+  }) async {
+    turnComplete = true;
+    boardComplete = finished;
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -188,14 +212,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reglas del tablero 3'), findsOneWidget);
-    expect(find.text('Morado (XO)'), findsNWidgets(2));
-    expect(find.text('Azul (=)'), findsOneWidget);
-    expect(find.text('Rojo (≠)'), findsNWidgets(2));
+    expect(find.text('Reglas por color y zona'), findsOneWidget);
+    expect(find.textContaining('Morado · Zonas'), findsOneWidget);
+    expect(find.textContaining('Rojo · Zonas'), findsOneWidget);
+    expect(find.textContaining('Blanco · Zona'), findsOneWidget);
+    expect(find.textContaining('Gris'), findsNothing);
+    expect(find.text('XO'), findsOneWidget);
     expect(
-      find.textContaining('columnas verticales amarillas'),
+      find.text('La zona debe contener exactamente dos números distintos.'),
       findsOneWidget,
     );
-    expect(find.textContaining('5 casillas grises'), findsOneWidget);
   });
 
   testWidgets('describe todas las zonas agrupadas del tablero 4', (
@@ -208,16 +234,16 @@ void main() {
     await tester.tap(find.byTooltip('Ver reglas del tablero 4'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Morado (XO)'), findsOneWidget);
-    expect(find.text('Azul (=)'), findsOneWidget);
-    expect(find.text('Rojo (≠)'), findsNWidgets(2));
-    expect(find.text('Naranja (1-3)'), findsOneWidget);
-    expect(find.text('Naranja (4-6)'), findsOneWidget);
-    expect(find.text('Amarillo (≠)'), findsOneWidget);
-    expect(find.text('Verde (?)'), findsOneWidget);
-    expect(find.textContaining('6 casillas amarillas'), findsOneWidget);
-    expect(find.textContaining('6 casillas azules'), findsOneWidget);
-    expect(find.textContaining('4 casillas verdes'), findsOneWidget);
+    expect(find.textContaining('Morado · Zona'), findsOneWidget);
+    expect(find.textContaining('Azul · Zona'), findsOneWidget);
+    expect(find.textContaining('Rojo · Zonas'), findsOneWidget);
+    expect(find.textContaining('Naranja 1-3 · Zona'), findsOneWidget);
+    expect(find.textContaining('Naranja 4-6 · Zona'), findsOneWidget);
+    expect(find.textContaining('Amarillo · Zona'), findsOneWidget);
+    expect(find.textContaining('Verde · Zona'), findsOneWidget);
+    expect(find.text('≠'), findsNWidgets(2));
+    expect(find.text('1-3'), findsOneWidget);
+    expect(find.text('4-6'), findsOneWidget);
   });
 
   testWidgets('permite elegir un número desde una casilla inicial', (
@@ -481,13 +507,17 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Reglas y puntos por zona'), findsNothing);
+    expect(find.text('Puntos por zona'), findsNothing);
     expect(find.byKey(const ValueKey('placement-guide')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('drawer-backdrop')), findsOneWidget);
-    expect(find.text('Reglas y puntos por zona'), findsOneWidget);
-    expect(find.text('Reglas del tablero 4'), findsOneWidget);
+    await tester.drag(
+      find.byKey(const ValueKey('instructions-drawer-list')),
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Reglas por color y zona'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('drawer-tab-instructions')),
@@ -495,69 +525,29 @@ void main() {
       ),
       findsNothing,
     );
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('placement-guide')),
-        matching: find.textContaining('casilla iluminada'),
-      ),
-      findsOneWidget,
-    );
     final board = crearTablero(4);
     final upperOrangeIndex = board.zonas.indexWhere(
       (zone) => zone.region == Region.naranja && zone.valorMinimo == 4,
     );
     expect(upperOrangeIndex, isNonNegative);
-    expect(find.byIcon(Icons.hearing), findsOneWidget);
-    final upperOrangeLabel = find.textContaining('· Anaranjado superior');
+    final upperOrangeLabel = find.textContaining('Naranja 4-6 · Zona');
     expect(upperOrangeLabel, findsOneWidget);
-    expect(find.textContaining('🟠 Zona'), findsWidgets);
-    expect(
-      tester
-          .widget<Text>(
-            find.byKey(ValueKey('zone-points-${upperOrangeIndex + 1}')),
-          )
-          .data,
-      'Puntos: 6 → 4 → 3',
-    );
-    expect(
-      tester
-          .widget<Text>(
-            find.byKey(ValueKey('zone-next-points-${upperOrangeIndex + 1}')),
-          )
-          .data,
-      '+6 pts',
-    );
-    final orangeRule = find.byWidgetPredicate(
-      (widget) =>
-          widget is Tooltip &&
-          widget.message == 'Solo se permiten números del 4 al 6.' &&
-          widget.triggerMode == TooltipTriggerMode.tap,
-    );
-    expect(orangeRule, findsOneWidget);
-    await tester.ensureVisible(orangeRule);
-    await tester.pumpAndSettle();
-    await tester.tap(orangeRule);
-    await tester.pumpAndSettle();
-    expect(find.text('Solo se permiten números del 4 al 6.'), findsOneWidget);
+    expect(find.text('La zona acepta números del 4 al 6.'), findsOneWidget);
 
-    final lowerOrangeLabel = find.textContaining('· Anaranjado inferior');
+    final lowerOrangeLabel = find.textContaining('Naranja 1-3 · Zona');
     await tester.ensureVisible(lowerOrangeLabel);
     expect(lowerOrangeLabel, findsOneWidget);
-    await tester.ensureVisible(find.textContaining('· Lila'));
+    await tester.ensureVisible(find.textContaining('Morado ·'));
     expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Tooltip &&
-            widget.message == 'Se permiten como máximo 2 números distintos.',
-      ),
-      findsWidgets,
+      find.text('La zona debe contener exactamente dos números distintos.'),
+      findsOneWidget,
     );
     expect(find.textContaining('Zona '), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('drawer-backdrop')), findsNothing);
-    expect(find.text('Reglas y puntos por zona'), findsNothing);
+    expect(find.text('Puntos por zona'), findsNothing);
   });
 
   testWidgets('no entra al juego sin confirmar sus números iniciales', (
@@ -743,6 +733,142 @@ void main() {
     expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
   });
 
+  testWidgets('deshabilita deshacer después de enviar el turno', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final board = crearTablero(1);
+    final initialPositions = obtenerPosicionesInicialesTablero(1);
+    for (var index = 0; index < initialPositions.length; index++) {
+      final position = initialPositions[index];
+      board.celdas[position[0]][position[1]] = index + 1;
+    }
+
+    var dice = <int>[];
+    for (var first = 1; first <= 6 && dice.isEmpty; first++) {
+      for (var second = 1; second <= 6; second++) {
+        if (obtenerPosicionesValidas(board, first, second).isNotEmpty ||
+            obtenerPosicionesValidas(board, second, first).isNotEmpty) {
+          dice = [first, second];
+          break;
+        }
+      }
+    }
+    expect(dice, hasLength(2));
+
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-top',
+        capacity: 2,
+        boardId: 1,
+        targetPoints: 20,
+        status: 'playing',
+        players: const [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 0,
+            finished: false,
+            setupComplete: true,
+          ),
+        ],
+      ),
+      game: MultiplayerGameState(
+        turn: 1,
+        dice: dice,
+        phase: 'playing',
+        setupCompletePlayerIds: const {'player-top'},
+        completedPlayerIds: const {},
+        zoneClaims: const {},
+        winnerId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: board, multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(_primeraCasillaValida());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Avanzar Turno'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ESPERANDO A LOS JUGADORES'), findsOneWidget);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey('undo-move-button')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('notifica la captura de una zona a los jugadores', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-top',
+        capacity: 2,
+        boardId: 1,
+        targetPoints: 20,
+        status: 'playing',
+        players: const [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 0,
+            finished: false,
+            setupComplete: true,
+          ),
+        ],
+      ),
+      game: const MultiplayerGameState(
+        turn: 1,
+        dice: [2, 5],
+        phase: 'playing',
+        setupCompletePlayerIds: {'player-top'},
+        completedPlayerIds: {},
+        zoneClaims: {},
+        winnerId: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: crearTablero(1), multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    service.game = const MultiplayerGameState(
+      turn: 1,
+      dice: [2, 5],
+      phase: 'playing',
+      setupCompletePlayerIds: {'player-top'},
+      completedPlayerIds: {},
+      zoneClaims: {
+        0: [
+          {'playerId': 'player-top', 'username': 'Ana', 'points': 8},
+        ],
+      },
+      winnerId: null,
+    );
+    service.notifyListeners();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ana tomó la Zona 1 (Amarillo).'), findsOneWidget);
+  });
+
   testWidgets('finaliza y no puntúa la zona amarilla con números repetidos', (
     tester,
   ) async {
@@ -822,6 +948,91 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('final-board-player-second')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('permite alternar entre tableros individuales y la lista', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service = _FakeMultiplayerService(
+      room: MultiplayerRoom(
+        code: 'ROOM01',
+        hostId: 'player-top',
+        capacity: 2,
+        boardId: 2,
+        targetPoints: 20,
+        status: 'finished',
+        players: [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 30,
+            finished: true,
+            setupComplete: true,
+            board: List<int>.filled(49, 1),
+          ),
+          MultiplayerPlayer(
+            id: 'player-second',
+            username: 'Luis',
+            ready: true,
+            connected: true,
+            score: 20,
+            finished: true,
+            setupComplete: true,
+            board: List<int>.filled(49, 2),
+          ),
+        ],
+      ),
+      game: const MultiplayerGameState(
+        turn: 8,
+        dice: [2, 5],
+        phase: 'finished',
+        setupCompletePlayerIds: {'player-top', 'player-second'},
+        completedPlayerIds: {'player-top', 'player-second'},
+        zoneClaims: {},
+        winnerId: 'player-top',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: crearTablero(2), multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ver tableros'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('select-final-board-player-top')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('final-board-detail-player-top')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('final-board-player-second')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Volver a los tableros'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('final-board-player-second')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('select-final-board-player-second')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('final-board-detail-player-second')),
       findsOneWidget,
     );
   });
