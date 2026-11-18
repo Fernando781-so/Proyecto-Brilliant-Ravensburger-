@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'brilliantravensburger.dart';
+
 class ReglasTableroGuide extends StatelessWidget {
   const ReglasTableroGuide({super.key, required this.boardId});
 
@@ -7,16 +9,33 @@ class ReglasTableroGuide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reglas = _reglasPorTablero[boardId];
-    if (reglas == null) {
+    if (boardId < 1 || boardId > 4) {
       return const Text('No hay instrucciones disponibles para este tablero.');
     }
 
-    return Column(
-      children: [
-        for (var index = 0; index < reglas.length; index++)
-          _ReglaTableroTile(regla: reglas[index], index: index),
-      ],
+    final reglas = _reglasPorTablero(boardId);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+              child: Text(
+                'Reglas por color y zona',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            for (var index = 0; index < reglas.length; index++) ...[
+              if (index > 0) const Divider(height: 1),
+              _ReglaTableroTile(regla: reglas[index], index: index),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -29,6 +48,9 @@ class _ReglaTableroTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final zonas = regla.zonas.length == 1
+        ? 'Zona ${regla.zonas.single}'
+        : 'Zonas ${regla.zonas.join(', ')}';
     return ListTile(
       key: ValueKey('board-rule-${index + 1}'),
       dense: true,
@@ -37,270 +59,129 @@ class _ReglaTableroTile extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: regla.color,
+          color: _colorRegion(regla.region),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.black38),
         ),
         alignment: Alignment.center,
         child: Text(
-          regla.simbolo,
+          _simbolo(regla),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
       ),
       title: Text(
-        '${regla.nombre} (${regla.simbolo})',
+        '${_nombreRegion(regla.region, regla)} · $zonas',
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(regla.descripcion),
+      subtitle: Text(_descripcion(regla)),
     );
   }
 }
 
 class _ReglaTablero {
-  const _ReglaTablero({
-    required this.nombre,
-    required this.simbolo,
-    required this.descripcion,
-    required this.color,
+  _ReglaTablero({
+    required this.region,
+    required this.valorMinimo,
+    required this.valorMaximo,
   });
 
-  final String nombre;
-  final String simbolo;
-  final String descripcion;
-  final Color color;
+  final Region region;
+  final int? valorMinimo;
+  final int? valorMaximo;
+  final List<int> zonas = [];
 }
 
-const Map<int, List<_ReglaTablero>> _reglasPorTablero = {
-  1: [
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion: 'Conecta a la zona azul superior.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion: 'Conecta a la franja verde superior.',
-      color: Color(0xFFA5D6A7),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la zona roja izquierda.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion:
-          'Conecta a las casillas moradas de la esquina inferior izquierda.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion: 'Conecta a la zona morada central-derecha.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Amarillo',
-      simbolo: '≠',
-      descripcion:
-          'No tiene línea: engloba las 5 casillas amarillas aisladas de las esquinas y el centro; tienen que ser 5 números distintos entre sí.',
-      color: Color(0xFFFFE082),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion: 'Conecta a la franja verde inferior.',
-      color: Color(0xFFA5D6A7),
-    ),
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion: 'Conecta a la zona azul inferior.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la zona roja inferior.',
-      color: Color(0xFFEF9A9A),
-    ),
-  ],
-  2: [
-    _ReglaTablero(
-      nombre: 'Amarillo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la tira amarilla vertical izquierda.',
-      color: Color(0xFFFFE082),
-    ),
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion: 'Conecta a la zona morada superior izquierda.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la zona roja de la izquierda.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion: 'Conecta a la zona azul central.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion: 'Conecta a la zona verde inferior izquierda.',
-      color: Color(0xFFA5D6A7),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion: 'Conecta a la zona verde superior derecha.',
-      color: Color(0xFFA5D6A7),
-    ),
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion: 'Conecta a la zona azul superior.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la zona roja derecha.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion: 'Conecta a la zona morada derecha.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Gris',
-      simbolo: '=',
-      descripcion:
-          'No tiene línea: engloba las 3 casillas grises separadas (arriba, en medio y abajo); las tres deben tener exactamente el mismo número.',
-      color: Color(0xFFB0BEC5),
-    ),
-  ],
-  3: [
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion: 'Conecta al bloque morado grande de arriba.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la mitad izquierda de la franja roja central.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion: 'Conecta a toda la fila horizontal azul.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion: 'Conecta al bloque morado inferior izquierdo.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Amarillo',
-      simbolo: '≠',
-      descripcion:
-          'No tiene línea: engloba las dos columnas verticales amarillas (izquierda y derecha) como una sola zona de 6 casillas; todas deben ser diferentes, del 1 al 6.',
-      color: Color(0xFFFFE082),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion: 'Conecta a la mitad derecha de la franja roja central.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion:
-          'No tiene línea: engloba todas las casillas verdes (la fila larga de abajo más la casilla verde solitaria de la fila inferior).',
-      color: Color(0xFFA5D6A7),
-    ),
-    _ReglaTablero(
-      nombre: 'Gris',
-      simbolo: '=',
-      descripcion:
-          'No tiene línea: engloba las 5 casillas grises repartidas por el tablero; todas deben llevar el mismo número.',
-      color: Color(0xFFB0BEC5),
-    ),
-  ],
-  4: [
-    _ReglaTablero(
-      nombre: 'Morado',
-      simbolo: 'XO',
-      descripcion:
-          'Conecta al bloque morado central de 7 casillas: incluye las tres superiores, la central y las tres inferiores.',
-      color: Color(0xFFCE93D8),
-    ),
-    _ReglaTablero(
-      nombre: 'Azul',
-      simbolo: '=',
-      descripcion:
-          'Las 6 casillas azules de las dos columnas interiores forman una sola zona y deben llevar el mismo número; no hay una zona azul separada a la derecha.',
-      color: Color(0xFF90CAF9),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion:
-          'Conecta las 6 casillas rojas de las columnas exterior e interior del lado izquierdo; todas deben ser diferentes.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Naranja',
-      simbolo: '1-3',
-      descripcion:
-          'Conecta a las 7 casillas de la fila horizontal naranja inferior (solo números 1, 2 o 3).',
-      color: Color(0xFFFFCC80),
-    ),
-    _ReglaTablero(
-      nombre: 'Naranja',
-      simbolo: '4-6',
-      descripcion:
-          'Conecta a las 7 casillas de la fila horizontal naranja superior (solo números 4, 5 o 6).',
-      color: Color(0xFFFFCC80),
-    ),
-    _ReglaTablero(
-      nombre: 'Rojo',
-      simbolo: '≠',
-      descripcion:
-          'Conecta las 6 casillas rojas de las columnas exterior e interior del lado derecho; todas deben ser diferentes.',
-      color: Color(0xFFEF9A9A),
-    ),
-    _ReglaTablero(
-      nombre: 'Amarillo',
-      simbolo: '≠',
-      descripcion:
-          'Las 6 casillas amarillas de las dos columnas exteriores forman una sola zona; todas deben ser diferentes.',
-      color: Color(0xFFFFE082),
-    ),
-    _ReglaTablero(
-      nombre: 'Verde',
-      simbolo: '?',
-      descripcion:
-          'Incluye las 4 casillas verdes del patrón central: una arriba, dos a los lados y una abajo. Se puede colocar cualquier número.',
-      color: Color(0xFFA5D6A7),
-    ),
-  ],
-};
+List<_ReglaTablero> _reglasPorTablero(int boardId) {
+  final tablero = crearTablero(boardId);
+  final reglas = <String, _ReglaTablero>{};
+
+  for (var index = 0; index < tablero.zonas.length; index++) {
+    final zona = tablero.zonas[index];
+    final key = zona.region == Region.naranja
+        ? '${zona.region.index}-${zona.valorMinimo}-${zona.valorMaximo}'
+        : '${zona.region.index}';
+    final regla = reglas.putIfAbsent(
+      key,
+      () => _ReglaTablero(
+        region: zona.region,
+        valorMinimo: zona.valorMinimo,
+        valorMaximo: zona.valorMaximo,
+      ),
+    );
+    regla.zonas.add(index + 1);
+  }
+
+  return reglas.values.toList();
+}
+
+String _nombreRegion(Region region, _ReglaTablero regla) {
+  switch (region) {
+    case Region.amarillo:
+      return 'Amarillo';
+    case Region.verde:
+      return 'Verde';
+    case Region.azul:
+      return 'Azul';
+    case Region.lila:
+      return 'Morado';
+    case Region.rojo:
+      return 'Rojo';
+    case Region.blanco:
+      return 'Blanco';
+    case Region.naranja:
+      return 'Naranja ${regla.valorMinimo}-${regla.valorMaximo}';
+  }
+}
+
+String _simbolo(_ReglaTablero regla) {
+  switch (regla.region) {
+    case Region.amarillo:
+    case Region.rojo:
+      return '≠';
+    case Region.verde:
+      return '?';
+    case Region.azul:
+    case Region.blanco:
+      return '=';
+    case Region.lila:
+      return 'XO';
+    case Region.naranja:
+      return '${regla.valorMinimo}-${regla.valorMaximo}';
+  }
+}
+
+String _descripcion(_ReglaTablero regla) {
+  switch (regla.region) {
+    case Region.amarillo:
+    case Region.rojo:
+      return 'Todos los números de la zona deben ser diferentes entre sí.';
+    case Region.verde:
+      return 'La zona acepta cualquier número.';
+    case Region.azul:
+    case Region.blanco:
+      return 'Todos los números de la zona deben ser iguales.';
+    case Region.lila:
+      return 'La zona debe contener exactamente dos números distintos.';
+    case Region.naranja:
+      return 'La zona acepta números del ${regla.valorMinimo} al ${regla.valorMaximo}.';
+  }
+}
+
+Color _colorRegion(Region region) {
+  switch (region) {
+    case Region.amarillo:
+      return Colors.amber.shade200;
+    case Region.verde:
+      return Colors.green.shade200;
+    case Region.azul:
+      return Colors.blue.shade200;
+    case Region.lila:
+      return Colors.purple.shade200;
+    case Region.rojo:
+      return Colors.red.shade200;
+    case Region.blanco:
+      return Colors.white;
+    case Region.naranja:
+      return Colors.orange.shade200;
+  }
+}
