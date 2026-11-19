@@ -12,6 +12,9 @@ class _FakeMultiplayerService implements MultiplayerService {
   final Set<VoidCallback> _listeners = {};
   bool turnComplete = false;
   bool boardComplete = false;
+  bool connected = true;
+  bool playAllowed = true;
+  int ownScore = 30;
 
   @override
   MultiplayerRoom? room;
@@ -26,13 +29,13 @@ class _FakeMultiplayerService implements MultiplayerService {
   String? lastError;
 
   @override
-  bool get isConnected => true;
+  bool get isConnected => connected;
 
   @override
-  bool get canPlay => true;
+  bool get canPlay => playAllowed;
 
   @override
-  int get myScore => 30;
+  int get myScore => ownScore;
 
   @override
   List<int>? get myBoard => null;
@@ -201,7 +204,7 @@ void main() {
     );
   });
 
-  testWidgets('muestra las reglas y símbolos durante la colocación inicial', (
+  testWidgets('muestra los puntos de cada zona durante la configuración', (
     tester,
   ) async {
     _configurarSuperficie(tester);
@@ -212,19 +215,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reglas del tablero 3'), findsOneWidget);
-    expect(find.text('Reglas por color y zona'), findsOneWidget);
-    expect(find.textContaining('Morado · Zonas'), findsOneWidget);
-    expect(find.textContaining('Rojo · Zonas'), findsOneWidget);
-    expect(find.textContaining('Blanco · Zona'), findsOneWidget);
+    expect(find.text('Puntos de las zonas'), findsOneWidget);
+    final board = crearTablero(3);
+    for (var index = 0; index < board.zonas.length; index++) {
+      expect(find.byKey(ValueKey('board-zone-${index + 1}')), findsOneWidget);
+    }
     expect(find.textContaining('Gris'), findsNothing);
-    expect(find.text('XO'), findsOneWidget);
-    expect(
-      find.text('La zona debe contener exactamente dos números distintos.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Puntos: '), findsWidgets);
+    expect(find.text('Reglas por color y zona'), findsNothing);
   });
 
-  testWidgets('describe todas las zonas agrupadas del tablero 4', (
+  testWidgets('muestra los puntos de todas las zonas del tablero 4', (
     tester,
   ) async {
     _configurarSuperficie(tester);
@@ -234,16 +235,21 @@ void main() {
     await tester.tap(find.byTooltip('Ver reglas del tablero 4'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Morado · Zona'), findsOneWidget);
-    expect(find.textContaining('Azul · Zona'), findsOneWidget);
-    expect(find.textContaining('Rojo · Zonas'), findsOneWidget);
-    expect(find.textContaining('Naranja 1-3 · Zona'), findsOneWidget);
-    expect(find.textContaining('Naranja 4-6 · Zona'), findsOneWidget);
-    expect(find.textContaining('Amarillo · Zona'), findsOneWidget);
-    expect(find.textContaining('Verde · Zona'), findsOneWidget);
-    expect(find.text('≠'), findsNWidgets(2));
-    expect(find.text('1-3'), findsOneWidget);
-    expect(find.text('4-6'), findsOneWidget);
+    final board = crearTablero(4);
+    for (var index = 0; index < board.zonas.length; index++) {
+      expect(find.byKey(ValueKey('board-zone-${index + 1}')), findsOneWidget);
+      final zone = board.zonas[index];
+      if (zone.region == Region.naranja) {
+        expect(
+          find.textContaining(
+            'Naranja ${zone.valorMinimo}-${zone.valorMaximo}',
+          ),
+          findsOneWidget,
+        );
+      }
+    }
+    expect(find.textContaining('Puntos: '), findsWidgets);
+    expect(find.text('Reglas por color y zona'), findsNothing);
   });
 
   testWidgets('permite elegir un número desde una casilla inicial', (
@@ -507,7 +513,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('Puntos por zona'), findsNothing);
+    expect(find.text('Puntos de las zonas'), findsNothing);
     expect(find.byKey(const ValueKey('placement-guide')), findsNothing);
     await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
     await tester.pumpAndSettle();
@@ -517,7 +523,7 @@ void main() {
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Reglas por color y zona'), findsOneWidget);
+    expect(find.text('Puntos de las zonas'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('drawer-tab-instructions')),
@@ -530,24 +536,53 @@ void main() {
       (zone) => zone.region == Region.naranja && zone.valorMinimo == 4,
     );
     expect(upperOrangeIndex, isNonNegative);
-    final upperOrangeLabel = find.textContaining('Naranja 4-6 · Zona');
+    final upperOrangeLabel = find.textContaining(
+      'Zona ${upperOrangeIndex + 1} · Naranja 4-6',
+    );
     expect(upperOrangeLabel, findsOneWidget);
-    expect(find.text('La zona acepta números del 4 al 6.'), findsOneWidget);
+    expect(find.textContaining('Puntos: '), findsWidgets);
+    expect(find.text('La zona acepta números del 4 al 6.'), findsNothing);
 
-    final lowerOrangeLabel = find.textContaining('Naranja 1-3 · Zona');
+    final lowerOrangeIndex = board.zonas.indexWhere(
+      (zone) => zone.region == Region.naranja && zone.valorMinimo == 1,
+    );
+    final lowerOrangeLabel = find.textContaining(
+      'Zona ${lowerOrangeIndex + 1} · Naranja 1-3',
+    );
     await tester.ensureVisible(lowerOrangeLabel);
     expect(lowerOrangeLabel, findsOneWidget);
-    await tester.ensureVisible(find.textContaining('Morado ·'));
+    final zoneColor = find.byKey(
+      ValueKey('zone-color-${upperOrangeIndex + 1}'),
+    );
+    await tester.ensureVisible(zoneColor);
+    await tester.tap(zoneColor);
+    await tester.pumpAndSettle();
+    final [row, column] = board.zonas[upperOrangeIndex].posiciones.first;
+    final highlightedCellFinder = find.descendant(
+      of: find.byKey(ValueKey('casilla-juego-$row-$column')),
+      matching: find.byType(AnimatedContainer),
+    );
+    final highlightedCell = tester.widget<AnimatedContainer>(
+      highlightedCellFinder,
+    );
     expect(
-      find.text('La zona debe contener exactamente dos números distintos.'),
-      findsOneWidget,
+      (highlightedCell.decoration! as BoxDecoration).border!.top.color,
+      Colors.deepPurple,
     );
     expect(find.textContaining('Zona '), findsWidgets);
 
     await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('drawer-backdrop')), findsNothing);
-    expect(find.text('Puntos por zona'), findsNothing);
+    expect(find.text('Puntos de las zonas'), findsNothing);
+    expect(
+      (tester.widget<AnimatedContainer>(highlightedCellFinder).decoration!
+              as BoxDecoration)
+          .border!
+          .top
+          .color,
+      Colors.deepPurple,
+    );
   });
 
   testWidgets('no entra al juego sin confirmar sus números iniciales', (
@@ -733,6 +768,80 @@ void main() {
     expect(find.text('Jugadores conectados y zonas capturadas'), findsNothing);
   });
 
+  testWidgets('conserva zonas y puntaje durante una desconexión en partida', (
+    tester,
+  ) async {
+    _configurarSuperficie(tester);
+    final service =
+        _FakeMultiplayerService(
+            room: MultiplayerRoom(
+              code: 'ROOM01',
+              hostId: 'player-top',
+              capacity: 2,
+              boardId: 1,
+              targetPoints: 30,
+              status: 'playing',
+              players: const [
+                MultiplayerPlayer(
+                  id: 'player-top',
+                  username: 'Ana',
+                  ready: true,
+                  connected: false,
+                  score: 24,
+                  finished: false,
+                  setupComplete: true,
+                ),
+                MultiplayerPlayer(
+                  id: 'player-second',
+                  username: 'Luis',
+                  ready: true,
+                  connected: true,
+                  score: 12,
+                  finished: false,
+                  setupComplete: true,
+                ),
+              ],
+            ),
+            game: const MultiplayerGameState(
+              turn: 4,
+              dice: [2, 5],
+              phase: 'playing',
+              setupCompletePlayerIds: {'player-top', 'player-second'},
+              completedPlayerIds: {},
+              zoneClaims: {
+                0: [
+                  {'playerId': 'player-top', 'username': 'Ana', 'points': 8},
+                ],
+              },
+              winnerId: null,
+            ),
+          )
+          ..connected = false
+          ..playAllowed = false
+          ..ownScore = 24;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: JuegoScreen(tablero: crearTablero(1), multiplayer: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('🏆 24 pts'), findsOneWidget);
+    expect(find.text('Partida finalizada'), findsNothing);
+    expect(
+      find.text(
+        'Sin conexión. Reconectando; tus puntos y turnos se conservan.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('drawer-tab-players')));
+    await tester.pumpAndSettle();
+    expect(find.text('Zona 1 · Amarillo'), findsOneWidget);
+    expect(find.text('+8 pts'), findsOneWidget);
+  });
+
   testWidgets('deshabilita deshacer después de enviar el turno', (
     tester,
   ) async {
@@ -866,7 +975,10 @@ void main() {
     service.notifyListeners();
     await tester.pumpAndSettle();
 
-    expect(find.text('Ana tomó la Zona 1 (Amarillo).'), findsOneWidget);
+    expect(
+      find.text('Ana capturó la Zona 1 (Amarillo) y obtuvo +8 pts.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('finaliza y no puntúa la zona amarilla con números repetidos', (

@@ -162,6 +162,7 @@ class MultiplayerService extends ChangeNotifier {
   bool _isRestoringRoom = false;
   bool _roomRestored = true;
   bool _awaitingGameSnapshot = false;
+  bool _hasLeftRoom = false;
 
   bool get isConnected => _socket.connected;
   bool get canPlay => isConnected && !_isRestoringRoom && _roomRestored;
@@ -242,6 +243,7 @@ class MultiplayerService extends ChangeNotifier {
 
   void _registerListeners() {
     _socket.on('lobby:update', (data) {
+      if (_hasLeftRoom) return;
       _setRoom(Map<String, dynamic>.from(data as Map));
     });
     _socket.on('game:start', (data) {
@@ -356,6 +358,7 @@ class MultiplayerService extends ChangeNotifier {
     }
     playerId = '${result['playerId']}';
     room = nextRoom;
+    _hasLeftRoom = false;
     _roomRestored =
         !_isRestoringRoom ||
         nextRoom.status != 'playing' ||
@@ -401,6 +404,7 @@ class MultiplayerService extends ChangeNotifier {
 
   Future<void> leaveRoom() async {
     await _request('lobby:leave', const {});
+    _hasLeftRoom = true;
     room = null;
     game = null;
     playerId = null;

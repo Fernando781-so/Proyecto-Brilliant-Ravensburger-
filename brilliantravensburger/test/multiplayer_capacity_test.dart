@@ -94,6 +94,76 @@ void main() {
       expect(game.playerBoards['player-1']!.first, 2);
       expect(game.playerBoards['player-2']!.first, 5);
     });
+
+    test('conserva a los jugadores desconectados en una sala de espera', () {
+      final room = MultiplayerRoom.fromJson({
+        'code': 'ROOM01',
+        'hostId': 'player-host',
+        'capacity': 2,
+        'boardId': 1,
+        'targetPoints': 20,
+        'status': 'waiting',
+        'players': [
+          {
+            'id': 'player-host',
+            'username': 'Anfitrión',
+            'ready': true,
+            'connected': false,
+          },
+          {'id': 'player-guest', 'username': 'Invitado', 'connected': true},
+        ],
+      });
+
+      expect(room.status, 'waiting');
+      expect(room.players, hasLength(2));
+      expect(room.players.first.connected, isFalse);
+      expect(room.players.first.ready, isTrue);
+    });
+
+    test(
+      'mantiene los puntos y las capturas tras desconectarse en una partida activa',
+      () {
+        final room = MultiplayerRoom.fromJson({
+          'code': 'ROOM01',
+          'hostId': 'player-host',
+          'capacity': 2,
+          'boardId': 1,
+          'targetPoints': 20,
+          'status': 'playing',
+          'players': [
+            {
+              'id': 'player-host',
+              'username': 'Anfitrión',
+              'connected': false,
+              'score': 24,
+              'finished': false,
+            },
+            {
+              'id': 'player-guest',
+              'username': 'Invitado',
+              'connected': true,
+              'score': 12,
+              'finished': false,
+            },
+          ],
+        });
+        final game = MultiplayerGameState.fromJson({
+          'phase': 'playing',
+          'zoneClaims': {
+            '0': [
+              {'playerId': 'player-host', 'username': 'Anfitrión', 'points': 8},
+            ],
+          },
+          'winnerId': null,
+        });
+
+        expect(room.status, 'playing');
+        expect(room.players.first.connected, isFalse);
+        expect(room.players.first.score, greaterThan(room.players.last.score));
+        expect(game.zoneClaims[0]?.single['points'], 8);
+        expect(game.winnerId, isNull);
+      },
+    );
   });
 
   group('Partidas multijugador por cantidad de jugadores', () {
@@ -282,12 +352,16 @@ void main() {
         );
       }
 
+      expect(find.text('Selecciona el tablero'), findsOneWidget);
+      expect(find.text('Tablero compartido'), findsNothing);
+      expect(find.byType(Scrollbar), findsOneWidget);
+
       final thirdBoard = find.byKey(const ValueKey('creation-board-3'));
       await tester.ensureVisible(thirdBoard);
       await tester.pumpAndSettle();
       await tester.tap(thirdBoard);
       await tester.pumpAndSettle();
-      expect(find.text('Tablero 3\nSeleccionado'), findsOneWidget);
+      expect(find.text('Tablero 3 · Seleccionado'), findsOneWidget);
     });
   });
 }
