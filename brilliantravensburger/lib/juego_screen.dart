@@ -35,6 +35,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   bool _dialogoSalidaMostrado = false;
   bool _salidaConfirmada = false;
   int _ultimoTurnoCompartido = 0;
+  int? _zonaResaltada;
   List<int>? _casillaJugada;
   _GameSidePanel? _openSidePanel;
   final Set<String> _avisosZonasCapturadas = {};
@@ -326,9 +327,16 @@ class _JuegoScreenState extends State<JuegoScreen>
               ),
             ),
           ),
-          ReglasTableroGuide(boardId: boardId),
+          ReglasTableroGuide(
+            boardId: boardId,
+            selectedZone: _zonaResaltada,
+            onZoneSelected: (index) {
+              setState(
+                () => _zonaResaltada = _zonaResaltada == index ? null : index,
+              );
+            },
+          ),
           const SizedBox(height: 8),
-          _buildRulesDropdown(),
         ],
       ),
     );
@@ -403,10 +411,15 @@ class _JuegoScreenState extends State<JuegoScreen>
             zoneIndex >= 0 && zoneIndex < widget.tablero.zonas.length
             ? _nombreRegion(widget.tablero.zonas[zoneIndex].region)
             : 'zona';
+        final points =
+            (reclamo.value['points'] as num?)?.toInt() ??
+            (reclamo.value['score'] as num?)?.toInt() ??
+            0;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${username ?? 'Un jugador'} tomó la Zona ${zoneIndex + 1} ($zoneName).',
+              '${username ?? 'Un jugador'} capturó la Zona ${zoneIndex + 1} '
+              '($zoneName) y obtuvo +$points pts.',
             ),
             behavior: SnackBarBehavior.floating,
           ),
@@ -811,63 +824,6 @@ class _JuegoScreenState extends State<JuegoScreen>
     }
   }
 
-  Widget _buildZoneInfoTile(
-    int index,
-    Zona zona,
-    Map<int, List<Map<String, dynamic>>> claimsByZone,
-  ) {
-    final claims = claimsByZone[index] ?? const [];
-    Map<String, dynamic>? claimForPlayer;
-    final playerId = widget.multiplayer?.playerId;
-    if (playerId != null) {
-      for (final claim in claims) {
-        if ('${claim['playerId']}' == playerId) {
-          claimForPlayer = claim;
-          break;
-        }
-      }
-    }
-
-    final points = zona.bolsaPuntos;
-    final nextPointIndex = points.isEmpty
-        ? 0
-        : min(claims.length, points.length - 1);
-    final nextPoints = points.isEmpty ? 0 : points[nextPointIndex];
-    final claimedPoints = (claimForPlayer?['points'] as num?)?.toInt();
-
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: const Icon(Icons.stars_outlined),
-      title: Text('Zona ${index + 1}'),
-      subtitle: Text(
-        'Puntos: ${points.join(' → ')}',
-        key: ValueKey('zone-points-${index + 1}'),
-      ),
-      trailing: SizedBox(
-        width: 76,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              claimedPoints == null ? 'Próximo' : 'Reclamada',
-              style: const TextStyle(fontSize: 11),
-            ),
-            Text(
-              claimedPoints == null
-                  ? '+$nextPoints pts'
-                  : '+$claimedPoints pts',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-              key: ValueKey('zone-next-points-${index + 1}'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPlacementGuide() {
     final service = widget.multiplayer;
     final message = _casillaJugada != null
@@ -897,44 +853,6 @@ class _JuegoScreenState extends State<JuegoScreen>
         message,
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  Widget _buildRulesDropdown() {
-    final zonas = widget.tablero.zonas;
-    final claimsByZone = widget.multiplayer?.game?.zoneClaims ?? const {};
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        visualDensity: VisualDensity.compact,
-        leading: const Icon(Icons.hearing),
-        title: const Text('Puntos por zona'),
-        subtitle: Text('${zonas.length} zonas'),
-        children: [
-          if (zonas.isEmpty)
-            const ListTile(
-              dense: true,
-              title: Text('Este tablero no tiene zonas.'),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (var index = 0; index < zonas.length; index++) ...[
-                      if (index > 0) const Divider(height: 1),
-                      _buildZoneInfoTile(index, zonas[index], claimsByZone),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }
@@ -1426,6 +1344,14 @@ class _JuegoScreenState extends State<JuegoScreen>
                           int columna = index % 7;
                           int valor = widget.tablero.celdas[fila][columna];
                           Region region = _obtenerRegionCasilla(fila, columna);
+                          final zoneIndex = widget.tablero.zonas.indexWhere(
+                            (zone) => zone.posiciones.any(
+                              (position) =>
+                                  position[0] == fila && position[1] == columna,
+                            ),
+                          );
+                          final isHighlightedZone =
+                              zoneIndex >= 0 && zoneIndex == _zonaResaltada;
 
                           bool esValida = posicionesValidas.any(
                             (p) => p[0] == fila && p[1] == columna,
@@ -1447,12 +1373,24 @@ class _JuegoScreenState extends State<JuegoScreen>
                                   decoration: BoxDecoration(
                                     color: esValida
                                         ? Colors.amber.shade300
+                                        : isHighlightedZone
+                                        ? Color.lerp(
+                                            _colorParaRegion(region),
+                                            Colors.lightBlueAccent,
+                                            0.55,
+                                          )
                                         : _colorParaRegion(region),
                                     border: Border.all(
                                       color: esValida
                                           ? Colors.amber.shade900
+                                          : isHighlightedZone
+                                          ? Colors.deepPurple
                                           : Colors.black26,
-                                      width: esValida ? 3.5 : 1.0,
+                                      width: esValida
+                                          ? 3.5
+                                          : isHighlightedZone
+                                          ? 4
+                                          : 1.0,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                     boxShadow: esValida
@@ -1461,6 +1399,15 @@ class _JuegoScreenState extends State<JuegoScreen>
                                               color: Colors.amber.withOpacity(
                                                 0.6,
                                               ),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            ),
+                                          ]
+                                        : isHighlightedZone
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.deepPurple
+                                                  .withValues(alpha: 0.6),
                                               blurRadius: 8,
                                               spreadRadius: 2,
                                             ),

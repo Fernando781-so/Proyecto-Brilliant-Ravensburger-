@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 
 class ReglasTableroGuide extends StatelessWidget {
-  const ReglasTableroGuide({super.key, required this.boardId});
+  const ReglasTableroGuide({
+    super.key,
+    required this.boardId,
+    this.selectedZone,
+    this.onZoneSelected,
+  });
 
   final int boardId;
+  final int? selectedZone;
+  final ValueChanged<int>? onZoneSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +20,7 @@ class ReglasTableroGuide extends StatelessWidget {
       return const Text('No hay instrucciones disponibles para este tablero.');
     }
 
-    final reglas = _reglasPorTablero(boardId);
+    final board = crearTablero(boardId);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -23,15 +30,22 @@ class ReglasTableroGuide extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
               child: Text(
-                'Reglas por color y zona',
+                'Puntos de las zonas',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
-            for (var index = 0; index < reglas.length; index++) ...[
+            for (var index = 0; index < board.zonas.length; index++) ...[
               if (index > 0) const Divider(height: 1),
-              _ReglaTableroTile(regla: reglas[index], index: index),
+              _ZonePointsTile(
+                index: index,
+                zone: board.zonas[index],
+                selected: selectedZone == index,
+                onSelected: onZoneSelected == null
+                    ? null
+                    : () => onZoneSelected!(index),
+              ),
             ],
           ],
         ),
@@ -40,82 +54,70 @@ class ReglasTableroGuide extends StatelessWidget {
   }
 }
 
-class _ReglaTableroTile extends StatelessWidget {
-  const _ReglaTableroTile({required this.regla, required this.index});
+class _ZonePointsTile extends StatelessWidget {
+  const _ZonePointsTile({
+    required this.index,
+    required this.zone,
+    required this.selected,
+    required this.onSelected,
+  });
 
-  final _ReglaTablero regla;
   final int index;
+  final Zona zone;
+  final bool selected;
+  final VoidCallback? onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final zonas = regla.zonas.length == 1
-        ? 'Zona ${regla.zonas.single}'
-        : 'Zonas ${regla.zonas.join(', ')}';
+    final points = zone.bolsaPuntos.join(' → ');
     return ListTile(
-      key: ValueKey('board-rule-${index + 1}'),
+      key: ValueKey('board-zone-${index + 1}'),
       dense: true,
+      selected: selected,
+      selectedTileColor: Colors.blue.shade50,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: _colorRegion(regla.region),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black38),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          _simbolo(regla),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+      onTap: onSelected,
+      leading: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('zone-color-${index + 1}'),
+          customBorder: const CircleBorder(),
+          onTap: onSelected,
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _colorRegion(zone.region),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? Colors.deepPurple : Colors.black38,
+                width: selected ? 3 : 1,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
         ),
       ),
       title: Text(
-        '${_nombreRegion(regla.region, regla)} · $zonas',
+        'Zona ${index + 1} · ${_nombreZona(zone)}',
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(_descripcion(regla)),
+      subtitle: Text('Puntos: $points'),
     );
   }
 }
 
-class _ReglaTablero {
-  _ReglaTablero({
-    required this.region,
-    required this.valorMinimo,
-    required this.valorMaximo,
-  });
-
-  final Region region;
-  final int? valorMinimo;
-  final int? valorMaximo;
-  final List<int> zonas = [];
-}
-
-List<_ReglaTablero> _reglasPorTablero(int boardId) {
-  final tablero = crearTablero(boardId);
-  final reglas = <String, _ReglaTablero>{};
-
-  for (var index = 0; index < tablero.zonas.length; index++) {
-    final zona = tablero.zonas[index];
-    final key = zona.region == Region.naranja
-        ? '${zona.region.index}-${zona.valorMinimo}-${zona.valorMaximo}'
-        : '${zona.region.index}';
-    final regla = reglas.putIfAbsent(
-      key,
-      () => _ReglaTablero(
-        region: zona.region,
-        valorMinimo: zona.valorMinimo,
-        valorMaximo: zona.valorMaximo,
-      ),
-    );
-    regla.zonas.add(index + 1);
+String _nombreZona(Zona zone) {
+  if (zone.region == Region.naranja &&
+      zone.valorMinimo != null &&
+      zone.valorMaximo != null) {
+    return 'Naranja ${zone.valorMinimo}-${zone.valorMaximo}';
   }
-
-  return reglas.values.toList();
-}
-
-String _nombreRegion(Region region, _ReglaTablero regla) {
-  switch (region) {
+  switch (zone.region) {
     case Region.amarillo:
       return 'Amarillo';
     case Region.verde:
@@ -129,41 +131,7 @@ String _nombreRegion(Region region, _ReglaTablero regla) {
     case Region.blanco:
       return 'Blanco';
     case Region.naranja:
-      return 'Naranja ${regla.valorMinimo}-${regla.valorMaximo}';
-  }
-}
-
-String _simbolo(_ReglaTablero regla) {
-  switch (regla.region) {
-    case Region.amarillo:
-    case Region.rojo:
-      return '≠';
-    case Region.verde:
-      return '?';
-    case Region.azul:
-    case Region.blanco:
-      return '=';
-    case Region.lila:
-      return 'XO';
-    case Region.naranja:
-      return '${regla.valorMinimo}-${regla.valorMaximo}';
-  }
-}
-
-String _descripcion(_ReglaTablero regla) {
-  switch (regla.region) {
-    case Region.amarillo:
-    case Region.rojo:
-      return 'Todos los números de la zona deben ser diferentes entre sí.';
-    case Region.verde:
-      return 'La zona acepta cualquier número.';
-    case Region.azul:
-    case Region.blanco:
-      return 'Todos los números de la zona deben ser iguales.';
-    case Region.lila:
-      return 'La zona debe contener exactamente dos números distintos.';
-    case Region.naranja:
-      return 'La zona acepta números del ${regla.valorMinimo} al ${regla.valorMaximo}.';
+      return 'Naranja';
   }
 }
 

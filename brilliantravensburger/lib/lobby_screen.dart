@@ -22,17 +22,23 @@ class LobbyScreen extends StatefulWidget {
 
 class _LobbyScreenState extends State<LobbyScreen> {
   final TextEditingController _codeController = TextEditingController();
+  final ScrollController _boardsScrollController = ScrollController();
   MultiplayerService? _service;
   int _capacity = 2;
   int _boardId = 1;
   bool _loading = false;
   bool _didNavigateToGame = false;
+  bool _allowExit = false;
+  bool _exitRequested = false;
+  bool _leavingRoom = false;
   String? _error;
 
   @override
   void dispose() {
     _codeController.dispose();
+    _boardsScrollController.dispose();
     _service?.removeListener(_onServiceUpdate);
+    if (!_didNavigateToGame) _service?.dispose();
     super.dispose();
   }
 
@@ -61,8 +67,45 @@ class _LobbyScreenState extends State<LobbyScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        if (_exitRequested) {
+          _exitRequested = false;
+          await _handleLobbyExit();
+        }
+      }
     }
+  }
+
+  Future<void> _handleLobbyExit() async {
+    if (_allowExit || _leavingRoom) return;
+    if (_loading) {
+      _exitRequested = true;
+      return;
+    }
+
+    final service = _service;
+    if (service?.room != null && service!.room!.status != 'playing') {
+      setState(() => _leavingRoom = true);
+      try {
+        await service.leaveRoom();
+      } catch (error) {
+        if (mounted) {
+          setState(
+            () => _error = error.toString().replaceFirst('Exception: ', ''),
+          );
+        }
+        return;
+      } finally {
+        if (mounted) setState(() => _leavingRoom = false);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _allowExit = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
   }
 
   Future<void> _createRoom() {
@@ -112,10 +155,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final board = crearTablero(boardId);
     final points = board.zonas.map((zone) => zone.bolsaPuntos).toList();
     await _runRoomAction(
-      (service) => service.setBoard(
-        boardId: boardId,
-        zonePointValues: points,
-      ),
+      (service) => service.setBoard(boardId: boardId, zonePointValues: points),
     );
   }
 
@@ -124,17 +164,23 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final service = _service;
     final room = service?.room;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.joinMode ? 'Unirse a sala' : 'Crear sala'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: room == null
-              ? _buildRoomOptions()
-              : _buildRoom(room, service!),
+    return PopScope<Object?>(
+      canPop: _allowExit || (room == null && !_loading && !_leavingRoom),
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) _handleLobbyExit();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.joinMode ? 'Unirse a sala' : 'Crear sala'),
+          centerTitle: true,
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: room == null
+                ? _buildRoomOptions()
+                : _buildRoom(room, service!),
+          ),
         ),
       ),
     );
@@ -178,89 +224,80 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 : (value) => setState(() => _capacity = value ?? 2),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            key: ValueKey(_boardId),
-            initialValue: _boardId,
-            decoration: const InputDecoration(
-              labelText: 'Tablero compartido',
-              border: OutlineInputBorder(),
-            ),
-            items: List.generate(
-              4,
-              (index) => DropdownMenuItem(
-                value: index + 1,
-                child: Text('Tablero ${index + 1}'),
-              ),
-            ),
-            onChanged: _loading
-                ? null
-                : (value) => setState(() => _boardId = value ?? 1),
-          ),
-          const SizedBox(height: 16),
           const Text(
-            'Vista previa de tableros',
+            'Selecciona el tablero',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: 184,
-            child: GridView.builder(
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 2.15,
-              ),
-              itemCount: 4,
-              itemBuilder: (context, index) {
-                final boardId = index + 1;
-                final isSelected = _boardId == boardId;
-                return Card(
-                  key: ValueKey('creation-board-card-$boardId'),
-                  margin: EdgeInsets.zero,
-                  color: isSelected ? Colors.blue.shade50 : null,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isSelected ? Colors.blue : Colors.black12,
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    key: ValueKey('creation-board-$boardId'),
-                    onTap: _loading
-                        ? null
-                        : () => setState(() => _boardId = boardId),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          TableroPreview(boardId: boardId, size: 72),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              isSelected
-                                  ? 'Tablero $boardId\nSeleccionado'
-                                  : 'Tablero $boardId',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isSelected ? Colors.blue.shade900 : null,
+            height: 260,
+            child: Scrollbar(
+              controller: _boardsScrollController,
+              thumbVisibility: true,
+              child: ListView(
+                key: const ValueKey('creation-boards-list'),
+                controller: _boardsScrollController,
+                children: [
+                  for (var index = 0; index < 4; index++)
+                    Builder(
+                      builder: (context) {
+                        final boardId = index + 1;
+                        final isSelected = _boardId == boardId;
+                        return Card(
+                          key: ValueKey('creation-board-card-$boardId'),
+                          margin: const EdgeInsets.only(right: 12, bottom: 8),
+                          color: isSelected ? Colors.blue.shade50 : null,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isSelected ? Colors.blue : Colors.black12,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            key: ValueKey('creation-board-$boardId'),
+                            onTap: _loading
+                                ? null
+                                : () => setState(() => _boardId = boardId),
+                            child: SizedBox(
+                              height: 76,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Row(
+                                  children: [
+                                    TableroPreview(boardId: boardId, size: 62),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        isSelected
+                                            ? 'Tablero $boardId · Seleccionado'
+                                            : 'Tablero $boardId',
+                                        style: TextStyle(
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.blue.shade900
+                                              : null,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.blue,
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                          if (isSelected)
-                            const Icon(Icons.check_circle, color: Colors.blue),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  ),
-                );
-              },
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
