@@ -54,7 +54,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Crear sala'), findsNWidgets(2));
+    expect(find.text('Crear sala'), findsOneWidget);
     expect(find.text('Cantidad de jugadores'), findsOneWidget);
     expect(find.text('Código de sala'), findsNothing);
     expect(find.text('Jugar sin conexión'), findsNothing);
