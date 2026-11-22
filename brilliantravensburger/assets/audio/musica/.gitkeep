@@ -1,0 +1,4 @@
+# Coloca aquí tus archivos de música de fondo (.mp3, .wav, .ogg)
+# Ejemplos de nombres configurados en lib/audio_service.dart:
+# - menu.mp3       (Música del menú principal y sala de espera)
+# - partida.mp3    (Música durante la partida)
