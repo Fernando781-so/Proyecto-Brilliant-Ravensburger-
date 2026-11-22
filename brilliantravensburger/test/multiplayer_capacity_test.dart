@@ -3,6 +3,181 @@ import 'package:brilliantravensburger/multiplayer_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+class _FakeLobbyMultiplayerService extends ChangeNotifier
+    implements MultiplayerService {
+  _FakeLobbyMultiplayerService({this.initialRankedPoints = 100});
+
+  final int initialRankedPoints;
+  final String username = 'Anfitrión';
+  int createCalls = 0;
+  int joinCalls = 0;
+  int leaveCalls = 0;
+  bool lastCreatedRanked = false;
+
+  @override
+  MultiplayerRoom? room;
+
+  @override
+  MultiplayerGameState? game;
+
+  @override
+  String? playerId = 'player-host';
+
+  @override
+  String? lastError;
+
+  @override
+  bool get isConnected => true;
+
+  @override
+  bool get canPlay => true;
+
+  @override
+  int get myScore => 0;
+
+  @override
+  bool get myTurnIsComplete => false;
+
+  @override
+  bool get mySetupIsComplete => false;
+
+  @override
+  bool get myBoardIsComplete => false;
+
+  @override
+  List<int>? get myBoard => null;
+
+  @override
+  Future<void> createRoom({
+    required int capacity,
+    required int boardId,
+    required List<List<int>> zonePointValues,
+    bool ranked = false,
+  }) async {
+    createCalls++;
+    lastCreatedRanked = ranked;
+    room = MultiplayerRoom(
+      code: 'ROOM0$createCalls',
+      hostId: 'player-host',
+      capacity: capacity,
+      boardId: boardId,
+      targetPoints: 26,
+      status: 'waiting',
+      ranked: ranked,
+      players: [
+        MultiplayerPlayer(
+          id: 'player-host',
+          username: username,
+          ready: false,
+          connected: true,
+          score: 0,
+          finished: false,
+          setupComplete: false,
+          rankedPoints: initialRankedPoints,
+        ),
+      ],
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> joinRoom(String code) async {
+    joinCalls++;
+    room = MultiplayerRoom(
+      code: code.trim().toUpperCase(),
+      hostId: 'player-host',
+      capacity: 2,
+      boardId: 1,
+      targetPoints: 26,
+      status: 'waiting',
+      ranked: true,
+      players: [
+        const MultiplayerPlayer(
+          id: 'player-host',
+          username: 'Anfitrión',
+          ready: true,
+          connected: true,
+          score: 0,
+          finished: false,
+          setupComplete: false,
+          rankedPoints: 300,
+        ),
+        MultiplayerPlayer(
+          id: 'player-guest',
+          username: username,
+          ready: false,
+          connected: true,
+          score: 0,
+          finished: false,
+          setupComplete: false,
+          rankedPoints: initialRankedPoints,
+        ),
+      ],
+    );
+    playerId = 'player-guest';
+    notifyListeners();
+  }
+
+  @override
+  Future<void> leaveRoom() async {
+    leaveCalls++;
+    room = null;
+    game = null;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setReady(bool ready) async {
+    final currentRoom = room;
+    if (currentRoom == null) return;
+    room = MultiplayerRoom(
+      code: currentRoom.code,
+      hostId: currentRoom.hostId,
+      capacity: currentRoom.capacity,
+      boardId: currentRoom.boardId,
+      targetPoints: currentRoom.targetPoints,
+      status: currentRoom.status,
+      ranked: currentRoom.ranked,
+      players: [
+        for (final player in currentRoom.players)
+          if (player.id == playerId)
+            MultiplayerPlayer(
+              id: player.id,
+              username: player.username,
+              ready: ready,
+              connected: player.connected,
+              score: player.score,
+              finished: player.finished,
+              setupComplete: player.setupComplete,
+              rankedPoints: player.rankedPoints,
+            )
+          else
+            player,
+      ],
+    );
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setBoard({
+    required int boardId,
+    required List<List<int>> zonePointValues,
+  }) async {}
+
+  @override
+  Future<void> completeTurn({
+    required List<int> board,
+    required List<int> completedZones,
+    required bool finished,
+  }) async {}
+
+  @override
+  Future<void> completeInitialSetup({required List<int> board}) async {}
+
+  @override
+  Future<void> retryRoomRestore() async {}
+}
+
 void main() {
   group('Modelos de datos multijugador', () {
     test(
@@ -363,5 +538,235 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tablero 3 · Seleccionado'), findsOneWidget);
     });
+  });
+
+  group('Modo Ranked (Clasificatoria) y niveles en sala de espera', () {
+    test('asigna el nivel de ranked según los puntos acumulados', () {
+      expect(obtenerNivelRanked(0), 'Principiante');
+      expect(obtenerNivelRanked(100), 'Principiante');
+      expect(obtenerNivelRanked(299), 'Principiante');
+      expect(obtenerNivelRanked(300), 'Nuevo héroe');
+      expect(obtenerNivelRanked(499), 'Nuevo héroe');
+      expect(obtenerNivelRanked(500), 'Experto');
+      expect(obtenerNivelRanked(749), 'Experto');
+      expect(obtenerNivelRanked(750), 'Megamente');
+      expect(obtenerNivelRanked(1199), 'Megamente');
+      expect(obtenerNivelRanked(1200), 'EL Brilliant');
+      expect(obtenerNivelRanked(1800), 'EL Brilliant');
+    });
+
+    test(
+      'no baja puntos al perder contra un jugador destacado por encima de ti',
+      () {
+        final delta = calcularCambioPuntosRanked(
+          puntosPartida: 18,
+          misPuntosRanked: 100,
+          rivalesPuntosRanked: const [300],
+          esGanador: false,
+          ganadorPuntosRanked: 300,
+          puntosGanadorPartida: 26,
+        );
+
+        expect(delta, 0);
+        expect(
+          aplicarCambioPuntosRanked(misPuntosRanked: 100, cambio: delta),
+          100,
+        );
+      },
+    );
+
+    test(
+      'aumenta un 20% los puntos ganados al vencer a un jugador por encima de ti',
+      () {
+        final delta = calcularCambioPuntosRanked(
+          puntosPartida: 25,
+          misPuntosRanked: 100,
+          rivalesPuntosRanked: const [300],
+          esGanador: true,
+        );
+
+        expect(delta, 30); // 25 + 20% = 30
+        expect(
+          aplicarCambioPuntosRanked(misPuntosRanked: 100, cambio: delta),
+          130,
+        );
+      },
+    );
+
+    test(
+      'suma puntos normales al ganar a un rival de igual o menor rango y resta al perder contra uno no superior',
+      () {
+        final winDelta = calcularCambioPuntosRanked(
+          puntosPartida: 26,
+          misPuntosRanked: 500,
+          rivalesPuntosRanked: const [300],
+          esGanador: true,
+        );
+        expect(winDelta, 26);
+
+        final lossDelta = calcularCambioPuntosRanked(
+          puntosPartida: 18,
+          misPuntosRanked: 500,
+          rivalesPuntosRanked: const [300],
+          esGanador: false,
+          ganadorPuntosRanked: 300,
+          puntosGanadorPartida: 26,
+        );
+        expect(lossDelta, -8);
+        expect(
+          aplicarCambioPuntosRanked(misPuntosRanked: 500, cambio: lossDelta),
+          492,
+        );
+      },
+    );
+
+    testWidgets(
+      'muestra los 5 niveles de ranked en la sala de espera según puntos acumulados',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final fakeService = _FakeLobbyMultiplayerService()
+          ..room = const MultiplayerRoom(
+            code: 'RANK01',
+            hostId: 'p1',
+            capacity: 5,
+            boardId: 1,
+            targetPoints: 21,
+            status: 'waiting',
+            ranked: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'p1',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 100,
+              ),
+              MultiplayerPlayer(
+                id: 'p2',
+                username: 'Luis',
+                ready: false,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 300,
+              ),
+              MultiplayerPlayer(
+                id: 'p3',
+                username: 'Marta',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 500,
+              ),
+              MultiplayerPlayer(
+                id: 'p4',
+                username: 'Carlos',
+                ready: false,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 750,
+              ),
+              MultiplayerPlayer(
+                id: 'p5',
+                username: 'Elena',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 1200,
+              ),
+            ],
+          );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'Ana',
+              service: fakeService,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
+        expect(
+          find.text('Principiante (100 puntos acumulados)'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Nuevo héroe (300 puntos acumulados)'),
+          findsOneWidget,
+        );
+        expect(find.text('Experto (500 puntos acumulados)'), findsOneWidget);
+        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
+        expect(
+          find.text('EL Brilliant (1200 puntos acumulados)'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'permite salir de una sala en espera y crear otra de inmediato sin error',
+      (tester) async {
+        final fakeService = _FakeLobbyMultiplayerService(
+          initialRankedPoints: 300,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'Anfitrión',
+              service: fakeService,
+            ),
+          ),
+        );
+
+        await tester.tap(find.byKey(const ValueKey('ranked-mode-switch')));
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        final createButton = find.byKey(const ValueKey('create-room-button'));
+        await tester.tap(createButton);
+        await tester.pumpAndSettle();
+
+        expect(fakeService.createCalls, 1);
+        expect(fakeService.lastCreatedRanked, isTrue);
+        expect(find.text('ROOM01'), findsOneWidget);
+        expect(
+          find.text('Nuevo héroe (300 puntos acumulados)'),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.text('Salir de la sala'));
+        await tester.pumpAndSettle();
+
+        expect(fakeService.leaveCalls, 1);
+        expect(find.text('ROOM01'), findsNothing);
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pumpAndSettle();
+
+        expect(fakeService.createCalls, 2);
+        expect(find.text('ROOM02'), findsOneWidget);
+      },
+    );
   });
 }

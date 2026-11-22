@@ -1,9 +1,83 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 
 import 'app_config.dart';
+
+String obtenerNivelRanked(int puntosAcumulados) {
+  if (puntosAcumulados >= 1200) return 'EL Brilliant';
+  if (puntosAcumulados >= 750) return 'Megamente';
+  if (puntosAcumulados >= 500) return 'Experto';
+  if (puntosAcumulados >= 300) return 'Nuevo héroe';
+  return 'Principiante';
+}
+
+int obtenerIndiceNivelRanked(int puntosAcumulados) {
+  if (puntosAcumulados >= 1200) return 4;
+  if (puntosAcumulados >= 750) return 3;
+  if (puntosAcumulados >= 500) return 2;
+  if (puntosAcumulados >= 300) return 1;
+  return 0;
+}
+
+bool esJugadorDestacadoSuperior({
+  required int misPuntosRanked,
+  required int rivalPuntosRanked,
+}) {
+  return rivalPuntosRanked > misPuntosRanked ||
+      obtenerIndiceNivelRanked(rivalPuntosRanked) >
+          obtenerIndiceNivelRanked(misPuntosRanked);
+}
+
+int calcularCambioPuntosRanked({
+  required int puntosPartida,
+  required int misPuntosRanked,
+  required List<int> rivalesPuntosRanked,
+  required bool esGanador,
+  int? ganadorPuntosRanked,
+  int? puntosGanadorPartida,
+}) {
+  final puntajePropio = max(0, puntosPartida);
+  final hayRivalSuperior = rivalesPuntosRanked.any(
+    (rivalPts) => esJugadorDestacadoSuperior(
+      misPuntosRanked: misPuntosRanked,
+      rivalPuntosRanked: rivalPts,
+    ),
+  );
+
+  if (esGanador) {
+    if (hayRivalSuperior) {
+      return (puntajePropio * 1.2).round();
+    }
+    return puntajePropio;
+  }
+
+  final perdioContraSuperior = ganadorPuntosRanked != null
+      ? esJugadorDestacadoSuperior(
+          misPuntosRanked: misPuntosRanked,
+          rivalPuntosRanked: ganadorPuntosRanked,
+        )
+      : hayRivalSuperior;
+  if (perdioContraSuperior) {
+    return 0;
+  }
+
+  final diferencia =
+      puntosGanadorPartida != null && puntosGanadorPartida > puntajePropio
+      ? puntosGanadorPartida - puntajePropio
+      : (puntajePropio > 0 ? puntajePropio : 10);
+  final nuevosPuntos = max(0, misPuntosRanked - diferencia);
+  return nuevosPuntos - misPuntosRanked;
+}
+
+int aplicarCambioPuntosRanked({
+  required int misPuntosRanked,
+  required int cambio,
+}) {
+  return max(0, misPuntosRanked + cambio);
+}
 
 class MultiplayerPlayer {
   const MultiplayerPlayer({
@@ -14,6 +88,8 @@ class MultiplayerPlayer {
     required this.score,
     required this.finished,
     required this.setupComplete,
+    this.rankedPoints = 0,
+    this.rankedDelta,
     this.board,
   });
 
@@ -24,7 +100,13 @@ class MultiplayerPlayer {
   final int score;
   final bool finished;
   final bool setupComplete;
+  final int rankedPoints;
+  final int? rankedDelta;
   final List<int>? board;
+
+  String get rankedLevel => obtenerNivelRanked(rankedPoints);
+
+  int get rankedTier => obtenerIndiceNivelRanked(rankedPoints);
 
   factory MultiplayerPlayer.fromJson(Map<String, dynamic> json) {
     final rawBoard = json['board'] as List<dynamic>?;
@@ -36,6 +118,8 @@ class MultiplayerPlayer {
       score: (json['score'] as num?)?.toInt() ?? 0,
       finished: json['finished'] == true,
       setupComplete: json['setupComplete'] == true,
+      rankedPoints: max(0, (json['rankedPoints'] as num?)?.toInt() ?? 0),
+      rankedDelta: (json['rankedDelta'] as num?)?.toInt(),
       board: rawBoard?.map((value) => (value as num).toInt()).toList(),
     );
   }
@@ -50,6 +134,7 @@ class MultiplayerRoom {
     required this.targetPoints,
     required this.status,
     required this.players,
+    this.ranked = false,
   });
 
   final String code;
@@ -59,6 +144,7 @@ class MultiplayerRoom {
   final int targetPoints;
   final String status;
   final List<MultiplayerPlayer> players;
+  final bool ranked;
 
   int get setupCompleteCount =>
       players.where((player) => player.setupComplete).length;
@@ -74,6 +160,7 @@ class MultiplayerRoom {
       boardId: (json['boardId'] as num).toInt(),
       targetPoints: (json['targetPoints'] as num).toInt(),
       status: '${json['status']}',
+      ranked: json['ranked'] == true || json['mode'] == 'ranked',
       players: (json['players'] as List<dynamic>? ?? const [])
           .map(
             (player) => MultiplayerPlayer.fromJson(
@@ -193,10 +280,13 @@ class MultiplayerService extends ChangeNotifier {
     final uri = Uri.parse(
       baseUrl,
     ).replace(path: '', query: null, fragment: null);
+    socket_io.cache.clear();
     final socket = socket_io.io(uri.toString(), <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
       'reconnection': true,
+      'forceNew': true,
+      'multiplex': false,
       'auth': {'token': token},
     });
     final service = MultiplayerService._(socket);
@@ -206,13 +296,13 @@ class MultiplayerService extends ChangeNotifier {
     socket.onConnect((_) {
       if (!connected.isCompleted) {
         connected.complete();
-      } else if (service.room != null) {
+      } else if (service.room != null && !service._hasLeftRoom) {
         unawaited(service._restoreRoom());
       }
       service.notifyListeners();
     });
     socket.onDisconnect((_) {
-      if (service.room != null) {
+      if (service.room != null && !service._hasLeftRoom) {
         service._roomRestored = false;
         service._awaitingGameSnapshot = service.room?.status == 'playing';
       }
@@ -247,9 +337,11 @@ class MultiplayerService extends ChangeNotifier {
       _setRoom(Map<String, dynamic>.from(data as Map));
     });
     _socket.on('game:start', (data) {
+      if (_hasLeftRoom) return;
       _setGameSnapshot(Map<String, dynamic>.from(data as Map));
     });
     _socket.on('game:state', (data) {
+      if (_hasLeftRoom) return;
       _setGameSnapshot(Map<String, dynamic>.from(data as Map));
     });
     _socket.on('app:error', (data) {
@@ -313,23 +405,32 @@ class MultiplayerService extends ChangeNotifier {
     required int capacity,
     required int boardId,
     required List<List<int>> zonePointValues,
+    bool ranked = false,
   }) async {
+    _hasLeftRoom = false;
     final result = await _request('lobby:create', {
       'capacity': capacity,
       'boardId': boardId,
       'zonePointValues': zonePointValues,
+      'ranked': ranked,
     });
     _acceptRoomResult(result);
   }
 
   Future<void> joinRoom(String code) async {
+    _hasLeftRoom = false;
     final result = await _request('lobby:join', {'code': code});
     _acceptRoomResult(result);
   }
 
   Future<void> _restoreRoom() async {
     final code = room?.code;
-    if (code == null || _isRestoringRoom || !_socket.connected) return;
+    if (code == null ||
+        _hasLeftRoom ||
+        _isRestoringRoom ||
+        !_socket.connected) {
+      return;
+    }
     _isRestoringRoom = true;
     _roomRestored = false;
     _awaitingGameSnapshot = room?.status == 'playing';
@@ -403,18 +504,39 @@ class MultiplayerService extends ChangeNotifier {
   }
 
   Future<void> leaveRoom() async {
-    await _request('lobby:leave', const {});
+    final hadActiveRoom = room != null && !_hasLeftRoom;
     _hasLeftRoom = true;
     room = null;
     game = null;
     playerId = null;
     _myBoard = null;
+    _isRestoringRoom = false;
+    _roomRestored = true;
+    _awaitingGameSnapshot = false;
+    lastError = null;
     notifyListeners();
+
+    if (hadActiveRoom && _socket.connected) {
+      try {
+        await _request('lobby:leave', const {});
+      } catch (_) {
+        // Ignorar si la sala ya fue cerrada o la conexión cambió.
+      }
+    }
   }
 
   @override
   void dispose() {
+    if (room != null && !_hasLeftRoom && _socket.connected) {
+      _hasLeftRoom = true;
+      _socket.emit('lobby:leave', const <String, dynamic>{});
+    }
+    room = null;
+    game = null;
+    playerId = null;
+    _myBoard = null;
     _socket.dispose();
+    socket_io.cache.clear();
     super.dispose();
   }
 }

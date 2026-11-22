@@ -10,11 +10,13 @@ class LobbyScreen extends StatefulWidget {
     required this.token,
     required this.username,
     this.joinMode = false,
+    this.service,
   });
 
   final String token;
   final String username;
   final bool joinMode;
+  final MultiplayerService? service;
 
   @override
   State<LobbyScreen> createState() => _LobbyScreenState();
@@ -26,12 +28,22 @@ class _LobbyScreenState extends State<LobbyScreen> {
   MultiplayerService? _service;
   int _capacity = 2;
   int _boardId = 1;
+  bool _isRanked = false;
   bool _loading = false;
   bool _didNavigateToGame = false;
   bool _allowExit = false;
   bool _exitRequested = false;
   bool _leavingRoom = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.service != null) {
+      _service = widget.service;
+      _service!.addListener(_onServiceUpdate);
+    }
+  }
 
   @override
   void dispose() {
@@ -43,7 +55,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<MultiplayerService> _getService() async {
-    if (_service != null) return _service!;
+    if (_service != null && _service!.isConnected) return _service!;
+    if (_service != null && widget.service == null) {
+      _service!.removeListener(_onServiceUpdate);
+      _service!.dispose();
+      _service = null;
+    } else if (_service != null) {
+      return _service!;
+    }
     final service = await MultiplayerService.connect(token: widget.token);
     service.addListener(_onServiceUpdate);
     _service = service;
@@ -60,7 +79,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
     try {
       final service = await _getService();
       await action(service);
+      if (_exitRequested && service.room != null) {
+        await service.leaveRoom();
+      }
     } catch (error) {
+      if (_service != null &&
+          !_service!.isConnected &&
+          widget.service == null) {
+        _service!.removeListener(_onServiceUpdate);
+        _service!.dispose();
+        _service = null;
+      }
       if (mounted) {
         setState(
           () => _error = error.toString().replaceFirst('Exception: ', ''),
@@ -85,17 +114,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     final service = _service;
-    if (service?.room != null && service!.room!.status != 'playing') {
+    if (service?.room != null) {
       setState(() => _leavingRoom = true);
       try {
-        await service.leaveRoom();
+        await service!.leaveRoom();
       } catch (error) {
         if (mounted) {
           setState(
             () => _error = error.toString().replaceFirst('Exception: ', ''),
           );
         }
-        return;
       } finally {
         if (mounted) setState(() => _leavingRoom = false);
       }
@@ -116,6 +144,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         capacity: _capacity,
         boardId: _boardId,
         zonePointValues: points,
+        ranked: _isRanked,
       ),
     );
   }
@@ -223,6 +252,38 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 ? null
                 : (value) => setState(() => _capacity = value ?? 2),
           ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            key: const ValueKey('ranked-mode-switch'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: _isRanked ? Colors.amber.shade700 : Colors.black12,
+                width: _isRanked ? 2 : 1,
+              ),
+            ),
+            tileColor: _isRanked ? Colors.amber.shade50 : null,
+            secondary: Icon(
+              _isRanked ? Icons.emoji_events : Icons.sports_esports_outlined,
+              color: _isRanked ? Colors.amber.shade800 : Colors.blueGrey,
+            ),
+            title: Text(
+              _isRanked ? 'Modo Clasificatoria (Ranked)' : 'Modo Casual',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              _isRanked
+                  ? 'Contra rival superior: 0 pts perdidos al caer y +20% de tus puntos al ganar.'
+                  : 'Partida amistosa sin cambios en puntos de clasificatoria.',
+              style: const TextStyle(fontSize: 12),
+            ),
+            value: _isRanked,
+            onChanged: _loading
+                ? null
+                : (value) => setState(() => _isRanked = value),
+          ),
           const SizedBox(height: 12),
           const Text(
             'Selecciona el tablero',
@@ -304,6 +365,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           SizedBox(
             height: 50,
             child: ElevatedButton.icon(
+              key: const ValueKey('create-room-button'),
               onPressed: _loading ? null : _createRoom,
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Crear sala'),
@@ -353,28 +415,56 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.meeting_room_outlined, size: 54, color: Colors.blue),
-        const SizedBox(height: 8),
+        const Icon(Icons.meeting_room_outlined, size: 40, color: Colors.blue),
+        const SizedBox(height: 4),
         const Text(
           'Comparte este código',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 16),
+          style: TextStyle(fontSize: 15),
         ),
         SelectableText(
           room.code,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: FontWeight.bold,
             letterSpacing: 8,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
           'Tablero ${room.boardId} · ${room.capacity} jugadores · objetivo ${room.targetPoints} pts',
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
+        Center(
+          child: Container(
+            key: const ValueKey('room-mode-badge'),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+            decoration: BoxDecoration(
+              color: room.ranked
+                  ? Colors.amber.shade100
+                  : Colors.blueGrey.shade50,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: room.ranked
+                    ? Colors.amber.shade700
+                    : Colors.blueGrey.shade200,
+              ),
+            ),
+            child: Text(
+              room.ranked ? 'Modo Clasificatoria (Ranked)' : 'Modo Casual',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: room.ranked
+                    ? Colors.amber.shade900
+                    : Colors.blueGrey.shade800,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
         Text(
           service.playerId == room.hostId
               ? 'Elige el tablero para todos'
@@ -382,16 +472,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
           textAlign: TextAlign.center,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         SizedBox(
-          height: 140,
+          height: 116,
           child: GridView.builder(
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
-              childAspectRatio: 2.1,
+              childAspectRatio: 2.5,
             ),
             itemCount: 4,
             itemBuilder: (context, index) {
@@ -421,7 +511,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     padding: const EdgeInsets.all(4),
                     child: Row(
                       children: [
-                        TableroPreview(boardId: boardId, size: 48),
+                        TableroPreview(boardId: boardId, size: 42),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -447,17 +537,18 @@ class _LobbyScreenState extends State<LobbyScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 8),
         Text(
           'Jugadores (${room.players.length}/${room.capacity})',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Expanded(
           child: ListView(
             children: [
               for (final player in room.players)
                 Card(
+                  key: ValueKey('lobby-player-${player.id}'),
                   child: ListTile(
                     leading: Icon(
                       player.ready ? Icons.check_circle : Icons.hourglass_empty,
@@ -466,8 +557,22 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     title: Text(
                       '${player.username}${player.id == room.hostId ? ' (anfitrión)' : ''}',
                     ),
-                    subtitle: Text(
-                      player.ready ? 'Listo' : 'Esperando confirmación',
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${player.rankedLevel} (${player.rankedPoints} puntos acumulados)',
+                          key: ValueKey('player-rank-${player.id}'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                        Text(
+                          player.ready ? 'Listo' : 'Esperando confirmación',
+                        ),
+                      ],
                     ),
                     trailing: player.connected
                         ? null

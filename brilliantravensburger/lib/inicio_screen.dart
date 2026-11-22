@@ -52,7 +52,11 @@ class _InicioScreenState extends State<InicioScreen> {
 
   @override
   void dispose() {
-    widget.multiplayer?.removeListener(_onMultiplayerUpdate);
+    final service = widget.multiplayer;
+    service?.removeListener(_onMultiplayerUpdate);
+    if (!_navegandoAlJuego) {
+      service?.dispose();
+    }
     super.dispose();
   }
 

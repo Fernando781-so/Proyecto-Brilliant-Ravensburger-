@@ -139,6 +139,13 @@ class _JuegoScreenState extends State<JuegoScreen>
     _dialogoSalidaMostrado = false;
     if (!mounted || salir != true) return;
 
+    final service = widget.multiplayer;
+    if (service != null) {
+      try {
+        await service.leaveRoom();
+      } catch (_) {}
+    }
+    if (!mounted) return;
     setState(() => _salidaConfirmada = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) Navigator.of(context).maybePop();
@@ -465,6 +472,7 @@ class _JuegoScreenState extends State<JuegoScreen>
     }
     final ranking = [...room.players]
       ..sort((left, right) => right.score.compareTo(left.score));
+    final effectiveWinner = winner ?? (ranking.isNotEmpty ? ranking.first : null);
 
     showDialog<void>(
       context: context,
@@ -475,6 +483,24 @@ class _JuegoScreenState extends State<JuegoScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (room.ranked) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Modo Clasificatoria (Ranked)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber.shade900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               winner == null
                   ? 'Ganador: ${ranking.first.username}'
@@ -482,8 +508,51 @@ class _JuegoScreenState extends State<JuegoScreen>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 8),
-            for (final player in ranking)
+            for (final player in ranking) ...[
               Text('${player.username}: ${player.score} pts'),
+              if (room.ranked)
+                Builder(
+                  builder: (context) {
+                    final isWinner = effectiveWinner?.id == player.id;
+                    final opponentRankedPoints = room.players
+                        .where((other) => other.id != player.id)
+                        .map((other) => other.rankedPoints)
+                        .toList();
+                    final delta =
+                        player.rankedDelta ??
+                        calcularCambioPuntosRanked(
+                          puntosPartida: player.score,
+                          misPuntosRanked: player.rankedPoints,
+                          rivalesPuntosRanked: opponentRankedPoints,
+                          esGanador: isWinner,
+                          ganadorPuntosRanked: effectiveWinner?.rankedPoints,
+                          puntosGanadorPartida: effectiveWinner?.score,
+                        );
+                    final totalRanked = player.rankedDelta != null
+                        ? player.rankedPoints
+                        : aplicarCambioPuntosRanked(
+                            misPuntosRanked: player.rankedPoints,
+                            cambio: delta,
+                          );
+                    final deltaLabel = delta > 0 ? '+$delta' : '$delta';
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        'Ranked: $deltaLabel pts → ${obtenerNivelRanked(totalRanked)} ($totalRanked pts)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: delta > 0
+                              ? Colors.green.shade800
+                              : delta < 0
+                              ? Colors.red.shade700
+                              : Colors.blueGrey.shade700,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
           ],
         ),
         actions: [
