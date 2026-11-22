@@ -15,6 +15,8 @@ class _FakeMultiplayerService implements MultiplayerService {
   bool connected = true;
   bool playAllowed = true;
   int ownScore = 30;
+  int leaveCalls = 0;
+  int disposeCalls = 0;
 
   @override
   MultiplayerRoom? room;
@@ -57,7 +59,17 @@ class _FakeMultiplayerService implements MultiplayerService {
   void removeListener(VoidCallback listener) => _listeners.remove(listener);
 
   @override
-  void dispose() => _listeners.clear();
+  void dispose() {
+    disposeCalls++;
+    _listeners.clear();
+  }
+
+  @override
+  Future<void> leaveRoom() async {
+    leaveCalls++;
+    room = null;
+    game = null;
+  }
 
   @override
   Future<void> completeTurn({
@@ -1148,4 +1160,237 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'muestra el bono del +20% al ganar a un superior y 0 pts perdidos al caer ante un superior en Ranked',
+    (tester) async {
+      _configurarSuperficie(tester);
+      // Ana (100 pts, Principiante) vence con 25 pts a Luis (300 pts, Nuevo héroe)
+      final serviceVictoriaSuperior = _FakeMultiplayerService(
+        room: const MultiplayerRoom(
+          code: 'RANK01',
+          hostId: 'player-ana',
+          capacity: 2,
+          boardId: 1,
+          targetPoints: 26,
+          status: 'finished',
+          ranked: true,
+          players: [
+            MultiplayerPlayer(
+              id: 'player-ana',
+              username: 'Ana',
+              ready: true,
+              connected: true,
+              score: 25,
+              finished: true,
+              setupComplete: true,
+              rankedPoints: 100,
+            ),
+            MultiplayerPlayer(
+              id: 'player-luis',
+              username: 'Luis',
+              ready: true,
+              connected: true,
+              score: 18,
+              finished: true,
+              setupComplete: true,
+              rankedPoints: 300,
+            ),
+          ],
+        ),
+        game: const MultiplayerGameState(
+          turn: 10,
+          dice: [3, 4],
+          phase: 'finished',
+          setupCompletePlayerIds: {'player-ana', 'player-luis'},
+          completedPlayerIds: {'player-ana', 'player-luis'},
+          zoneClaims: {},
+          winnerId: 'player-ana',
+        ),
+      )..playerId = 'player-ana';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: JuegoScreen(
+            tablero: crearTablero(1),
+            multiplayer: serviceVictoriaSuperior,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
+      expect(find.text('Ganador: Ana'), findsOneWidget);
+      // 25 pts + 20% = +30 pts -> 100 + 30 = 130 pts (Principiante)
+      expect(
+        find.text('Ranked: +30 pts → Principiante (130 pts)'),
+        findsOneWidget,
+      );
+      // Luis tenía 300 pts y perdió contra Ana (100 pts, inferior): pierde diferencia (25 - 18 = 7) -> 293 pts
+      expect(
+        find.text('Ranked: -7 pts → Principiante (293 pts)'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'no descuenta puntos en el resultado final cuando pierdes contra un jugador destacado por encima de ti',
+    (tester) async {
+      _configurarSuperficie(tester);
+      // Luis (300 pts, Nuevo héroe) vence con 26 pts a Ana (100 pts, Principiante)
+      final serviceDerrotaContraSuperior = _FakeMultiplayerService(
+        room: const MultiplayerRoom(
+          code: 'RANK02',
+          hostId: 'player-ana',
+          capacity: 2,
+          boardId: 1,
+          targetPoints: 26,
+          status: 'finished',
+          ranked: true,
+          players: [
+            MultiplayerPlayer(
+              id: 'player-luis',
+              username: 'Luis',
+              ready: true,
+              connected: true,
+              score: 26,
+              finished: true,
+              setupComplete: true,
+              rankedPoints: 300,
+            ),
+            MultiplayerPlayer(
+              id: 'player-ana',
+              username: 'Ana',
+              ready: true,
+              connected: true,
+              score: 18,
+              finished: true,
+              setupComplete: true,
+              rankedPoints: 100,
+            ),
+          ],
+        ),
+        game: const MultiplayerGameState(
+          turn: 10,
+          dice: [2, 6],
+          phase: 'finished',
+          setupCompletePlayerIds: {'player-ana', 'player-luis'},
+          completedPlayerIds: {'player-ana', 'player-luis'},
+          zoneClaims: {},
+          winnerId: 'player-luis',
+        ),
+      )..playerId = 'player-ana';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: JuegoScreen(
+            tablero: crearTablero(1),
+            multiplayer: serviceDerrotaContraSuperior,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
+      expect(find.text('Ganador: Luis'), findsOneWidget);
+      // Ana perdió contra un jugador destacado por encima de ella (300 > 100): 0 pts perdidos
+      expect(
+        find.text('Ranked: 0 pts → Principiante (100 pts)'),
+        findsOneWidget,
+      );
+      // Luis ganó contra alguien de menor rango: suma sus 26 pts normales -> 326 pts
+      expect(
+        find.text('Ranked: +26 pts → Nuevo héroe (326 pts)'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'al salir de una partida en ejecución o en configuración inicial libera la sala para poder crear otra sin error',
+    (tester) async {
+      _configurarSuperficie(tester);
+      final runningGameService = _FakeMultiplayerService(
+        room: const MultiplayerRoom(
+          code: 'PLAY01',
+          hostId: 'player-top',
+          capacity: 2,
+          boardId: 1,
+          targetPoints: 26,
+          status: 'playing',
+          ranked: true,
+          players: [
+            MultiplayerPlayer(
+              id: 'player-top',
+              username: 'Ana',
+              ready: true,
+              connected: true,
+              score: 10,
+              finished: false,
+              setupComplete: true,
+              rankedPoints: 100,
+            ),
+            MultiplayerPlayer(
+              id: 'player-second',
+              username: 'Luis',
+              ready: true,
+              connected: true,
+              score: 8,
+              finished: false,
+              setupComplete: true,
+              rankedPoints: 300,
+            ),
+          ],
+        ),
+        game: const MultiplayerGameState(
+          turn: 2,
+          dice: [1, 4],
+          phase: 'playing',
+          setupCompletePlayerIds: {'player-top', 'player-second'},
+          completedPlayerIds: {},
+          zoneClaims: {},
+          winnerId: null,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => JuegoScreen(
+                        tablero: crearTablero(1),
+                        multiplayer: runningGameService,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Entrar a partida'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Entrar a partida'));
+      await tester.pumpAndSettle();
+
+      // El jugador pulsa el botón de salir durante la partida en ejecución
+      await tester.tap(find.byTooltip('Salir de la partida'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('¿Salir de la partida?'), findsOneWidget);
+      await tester.tap(find.text('Salir de todos modos'));
+      await tester.pumpAndSettle();
+
+      expect(runningGameService.leaveCalls, 1);
+      expect(runningGameService.disposeCalls, 1);
+      expect(runningGameService.room, isNull);
+      expect(find.text('Entrar a partida'), findsOneWidget);
+    },
+  );
 }

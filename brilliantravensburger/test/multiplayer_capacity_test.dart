@@ -1,18 +1,39 @@
+import 'dart:async';
+
 import 'package:brilliantravensburger/lobby_screen.dart';
 import 'package:brilliantravensburger/multiplayer_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class _FakeLobbyMultiplayerService extends ChangeNotifier
-    implements MultiplayerService {
+class _FakeLobbyMultiplayerService implements MultiplayerService {
   _FakeLobbyMultiplayerService({this.initialRankedPoints = 100});
 
+  final Set<VoidCallback> _listeners = {};
   final int initialRankedPoints;
   final String username = 'Anfitrión';
   int createCalls = 0;
   int joinCalls = 0;
   int leaveCalls = 0;
+  int disposeCalls = 0;
   bool lastCreatedRanked = false;
+  bool connected = true;
+  Completer<void>? pendingCreateCompleter;
+
+  @override
+  void addListener(VoidCallback listener) => _listeners.add(listener);
+
+  @override
+  void removeListener(VoidCallback listener) => _listeners.remove(listener);
+
+  @override
+  void notifyListeners() {
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
+
+  @override
+  bool get hasListeners => _listeners.isNotEmpty;
 
   @override
   MultiplayerRoom? room;
@@ -27,7 +48,7 @@ class _FakeLobbyMultiplayerService extends ChangeNotifier
   String? lastError;
 
   @override
-  bool get isConnected => true;
+  bool get isConnected => connected;
 
   @override
   bool get canPlay => true;
@@ -56,6 +77,9 @@ class _FakeLobbyMultiplayerService extends ChangeNotifier
   }) async {
     createCalls++;
     lastCreatedRanked = ranked;
+    if (pendingCreateCompleter != null) {
+      await pendingCreateCompleter!.future;
+    }
     room = MultiplayerRoom(
       code: 'ROOM0$createCalls',
       hostId: 'player-host',
@@ -176,6 +200,16 @@ class _FakeLobbyMultiplayerService extends ChangeNotifier
 
   @override
   Future<void> retryRoomRestore() async {}
+
+  @override
+  void dispose() {
+    disposeCalls++;
+    if (room != null) {
+      leaveCalls++;
+      room = null;
+    }
+    _listeners.clear();
+  }
 }
 
 void main() {
@@ -766,6 +800,245 @@ void main() {
 
         expect(fakeService.createCalls, 2);
         expect(find.text('ROOM02'), findsOneWidget);
+      },
+    );
+
+    test(
+      'serializa y deserializa campos de clasificatoria en sala y jugador',
+      () {
+        final room = MultiplayerRoom.fromJson({
+          'code': 'RANK99',
+          'hostId': 'p1',
+          'capacity': 2,
+          'boardId': 2,
+          'targetPoints': 26,
+          'status': 'finished',
+          'ranked': true,
+          'players': [
+            {
+              'id': 'p1',
+              'username': 'Ana',
+              'ready': true,
+              'connected': true,
+              'score': 25,
+              'finished': true,
+              'setupComplete': true,
+              'rankedPoints': 130,
+              'rankedDelta': 30,
+            },
+            {
+              'id': 'p2',
+              'username': 'Luis',
+              'ready': true,
+              'connected': true,
+              'score': 18,
+              'finished': true,
+              'setupComplete': true,
+              'rankedPoints': 300,
+              'rankedDelta': 0,
+            },
+          ],
+        });
+
+        expect(room.ranked, isTrue);
+        expect(room.players.first.rankedPoints, 130);
+        expect(room.players.first.rankedDelta, 30);
+        expect(room.players.first.rankedLevel, 'Principiante');
+        expect(room.players.first.rankedTier, 0);
+        expect(room.players.last.rankedPoints, 300);
+        expect(room.players.last.rankedDelta, 0);
+        expect(room.players.last.rankedLevel, 'Nuevo héroe');
+        expect(room.players.last.rankedTier, 1);
+      },
+    );
+
+    test(
+      'nunca reduce los puntos de clasificatoria por debajo de 0 al perder',
+      () {
+        final delta = calcularCambioPuntosRanked(
+          puntosPartida: 5,
+          misPuntosRanked: 10,
+          rivalesPuntosRanked: const [10],
+          esGanador: false,
+          ganadorPuntosRanked: 10,
+          puntosGanadorPartida: 26,
+        );
+
+        expect(delta, -10);
+        expect(
+          aplicarCambioPuntosRanked(misPuntosRanked: 10, cambio: delta),
+          0,
+        );
+      },
+    );
+
+    testWidgets(
+      'cancela una sala mientras se está creando y permite crear o unirse a otra al primer intento',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final firstService = _FakeLobbyMultiplayerService(
+          initialRankedPoints: 100,
+        )..pendingCreateCompleter = Completer<void>();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => LobbyScreen(
+                            token: 'token',
+                            username: 'Anfitrión',
+                            service: firstService,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Abrir lobby'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Abrir lobby'));
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pump();
+
+        expect(firstService.createCalls, 1);
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+        // El usuario cancela / retrocede mientras la sala se está generando
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+
+        // Termina la petición en curso y debe limpiar la sala automáticamente
+        firstService.pendingCreateCompleter!.complete();
+        await tester.pumpAndSettle();
+
+        expect(firstService.leaveCalls, greaterThanOrEqualTo(1));
+        expect(firstService.room, isNull);
+        expect(find.text('Abrir lobby'), findsOneWidget);
+
+        // Al volver a entrar y crear otra sala o unirse, funciona al primer intento
+        final secondService = _FakeLobbyMultiplayerService(
+          initialRankedPoints: 500,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'Anfitrión',
+              service: secondService,
+            ),
+          ),
+        );
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pumpAndSettle();
+
+        expect(secondService.createCalls, 1);
+        expect(find.text('ROOM01'), findsOneWidget);
+        expect(find.text('Experto (500 puntos acumulados)'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'sale de una sala en espera con el botón atrás y permite unirse a otra sala al primer intento',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final hostService = _FakeLobbyMultiplayerService(
+          initialRankedPoints: 750,
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => LobbyScreen(
+                              token: 'token',
+                              username: 'Anfitrión',
+                              service: hostService,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Ir a crear'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => LobbyScreen(
+                              token: 'token',
+                              username: 'Anfitrión',
+                              joinMode: true,
+                              service: hostService,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text('Ir a unirse'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Ir a crear'));
+        await tester.pumpAndSettle();
+
+        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('ROOM01'), findsOneWidget);
+        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
+
+        // Sale de la sala en espera usando navegación hacia atrás
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        expect(hostService.leaveCalls, greaterThanOrEqualTo(1));
+        expect(hostService.room, isNull);
+        expect(find.text('Ir a unirse'), findsOneWidget);
+
+        // Ahora entra a otra sala y funciona al primer intento sin error
+        await tester.tap(find.text('Ir a unirse'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), 'ab12cd');
+        await tester.tap(find.text('Unirme a una sala'));
+        await tester.pumpAndSettle();
+
+        expect(hostService.joinCalls, 1);
+        expect(find.text('AB12CD'), findsOneWidget);
+        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
       },
     );
   });
