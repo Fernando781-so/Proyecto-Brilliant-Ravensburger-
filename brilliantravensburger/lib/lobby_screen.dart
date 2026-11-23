@@ -32,6 +32,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   int _capacity = 2;
   int _boardId = 1;
   bool _isRanked = false;
+  bool _timeTrial = false;
   bool _loading = false;
   bool _didNavigateToGame = false;
   bool _allowExit = false;
@@ -150,6 +151,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         boardId: _boardId,
         zonePointValues: points,
         ranked: _isRanked,
+        timeTrial: _timeTrial,
       ),
     );
   }
@@ -304,6 +306,41 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 : (value) {
                     unawaited(AudioService.instance.reproducirSelect());
                     setState(() => _isRanked = value);
+                  },
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            key: const ValueKey('time-trial-mode-switch'),
+            dense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: _timeTrial ? Colors.deepOrange.shade600 : Colors.black12,
+                width: _timeTrial ? 2 : 1,
+              ),
+            ),
+            tileColor: _timeTrial ? Colors.deepOrange.shade50 : null,
+            secondary: Icon(
+              _timeTrial ? Icons.timer : Icons.timer_off_outlined,
+              color: _timeTrial ? Colors.deepOrange.shade700 : Colors.blueGrey,
+            ),
+            title: const Text(
+              'Contra reloj',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              _timeTrial
+                  ? '5 min para números iniciales y 2 min por turno.'
+                  : 'Sin límite de tiempo por turno.',
+              style: const TextStyle(fontSize: 12),
+            ),
+            value: _timeTrial,
+            onChanged: _loading
+                ? null
+                : (value) {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    setState(() => _timeTrial = value);
                   },
           ),
           const SizedBox(height: 12),
@@ -465,30 +502,61 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ),
         const SizedBox(height: 4),
         Center(
-          child: Container(
-            key: const ValueKey('room-mode-badge'),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-            decoration: BoxDecoration(
-              color: room.ranked
-                  ? Colors.amber.shade100
-                  : Colors.blueGrey.shade50,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: room.ranked
-                    ? Colors.amber.shade700
-                    : Colors.blueGrey.shade200,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [
+              Container(
+                key: const ValueKey('room-mode-badge'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: room.ranked
+                      ? Colors.amber.shade100
+                      : Colors.blueGrey.shade50,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: room.ranked
+                        ? Colors.amber.shade700
+                        : Colors.blueGrey.shade200,
+                  ),
+                ),
+                child: Text(
+                  room.ranked ? 'Modo Clasificatoria (Ranked)' : 'Modo Casual',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: room.ranked
+                        ? Colors.amber.shade900
+                        : Colors.blueGrey.shade800,
+                  ),
+                ),
               ),
-            ),
-            child: Text(
-              room.ranked ? 'Modo Clasificatoria (Ranked)' : 'Modo Casual',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: room.ranked
-                    ? Colors.amber.shade900
-                    : Colors.blueGrey.shade800,
-              ),
-            ),
+              if (room.timeTrial)
+                Container(
+                  key: const ValueKey('room-time-trial-badge'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.deepOrange.shade400),
+                  ),
+                  child: Text(
+                    '⏱ Contra reloj (2 min)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepOrange.shade900,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 6),

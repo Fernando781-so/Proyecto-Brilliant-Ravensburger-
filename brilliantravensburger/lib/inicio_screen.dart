@@ -9,10 +9,16 @@ import 'reglas_tablero_guide.dart';
 import 'tablero_preview.dart';
 
 class InicioScreen extends StatefulWidget {
-  const InicioScreen({super.key, this.tableroInicial, this.multiplayer});
+  const InicioScreen({
+    super.key,
+    this.tableroInicial,
+    this.multiplayer,
+    this.contraReloj = false,
+  });
 
   final int? tableroInicial;
   final MultiplayerService? multiplayer;
+  final bool contraReloj;
 
   @override
   State<InicioScreen> createState() => _InicioScreenState();
@@ -26,6 +32,11 @@ class _InicioScreenState extends State<InicioScreen> {
   List<int>? _posicionExplosion;
   bool _enviandoConfiguracion = false;
   bool _navegandoAlJuego = false;
+  Timer? _setupTimer;
+  int _segundosRestantesInicio = duracionInicioContraReloj.inSeconds;
+
+  bool get _contraRelojActivo =>
+      widget.contraReloj || (widget.multiplayer?.room?.timeTrial == true);
 
   @override
   void initState() {
@@ -56,10 +67,59 @@ class _InicioScreenState extends State<InicioScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _abrirJuego());
       }
     }
+
+    if (_contraRelojActivo &&
+        _tableroSeleccionado != null &&
+        !_puedeAbrirPartidaMultijugador) {
+      _iniciarTemporizadorInicio();
+    }
+  }
+
+  void _iniciarTemporizadorInicio() {
+    _setupTimer?.cancel();
+    _segundosRestantesInicio = duracionInicioContraReloj.inSeconds;
+    _setupTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_segundosRestantesInicio <= 1) {
+        timer.cancel();
+        setState(() => _segundosRestantesInicio = 0);
+        _alVencerTiempoInicio();
+      } else {
+        setState(() => _segundosRestantesInicio--);
+      }
+    });
+  }
+
+  void _alVencerTiempoInicio() {
+    if (!mounted || _navegandoAlJuego || _miConfiguracionCompletada) return;
+    if (!bloc.puedeAvanzar) {
+      final disponibles = [
+        for (var n = 1; n <= 6; n++)
+          if (!bloc.numeroYaUtilizado(n)) n,
+      ];
+      var indice = 0;
+      setState(() {
+        for (final pos in bloc.posicionesIniciales) {
+          if (tablero.celdas[pos[0]][pos[1]] == 0 &&
+              indice < disponibles.length) {
+            bloc.colocarNumero(pos[0], pos[1], disponibles[indice++]);
+          }
+        }
+      });
+    }
+    if (widget.multiplayer == null) {
+      _abrirJuego();
+    } else {
+      unawaited(_confirmarConfiguracionInicial());
+    }
   }
 
   @override
   void dispose() {
+    _setupTimer?.cancel();
     final service = widget.multiplayer;
     service?.removeListener(_onMultiplayerUpdate);
     if (!_navegandoAlJuego) {
@@ -90,6 +150,7 @@ class _InicioScreenState extends State<InicioScreen> {
   void _abrirJuego() {
     if (!mounted || _navegandoAlJuego) return;
     _navegandoAlJuego = true;
+    _setupTimer?.cancel();
     final service = widget.multiplayer;
     if (service != null) {
       unawaited(
@@ -110,6 +171,7 @@ class _InicioScreenState extends State<InicioScreen> {
           tablero: tablero,
           tableroSeleccionado: _tableroSeleccionado,
           multiplayer: service,
+          contraReloj: _contraRelojActivo,
         ),
       ),
     );
@@ -226,6 +288,9 @@ class _InicioScreenState extends State<InicioScreen> {
       _posicionExplosion = null;
       _tableroSeleccionado = numero;
     });
+    if (_contraRelojActivo) {
+      _iniciarTemporizadorInicio();
+    }
   }
 
   void _mostrarReglasDelTablero() {
@@ -466,7 +531,37 @@ class _InicioScreenState extends State<InicioScreen> {
         ),
         centerTitle: true,
         elevation: 1,
-        actions: const [AudioSettingsButton()],
+        actions: [
+          if (_contraRelojActivo && _tableroSeleccionado != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4.0),
+              child: Center(
+                child: Container(
+                  key: const ValueKey('setup-timer-badge'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _segundosRestantesInicio <= 30
+                        ? Colors.red.shade100
+                        : Colors.deepOrange.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '⏱ ${formatearTiempoContraReloj(_segundosRestantesInicio)}',
+                    style: TextStyle(
+                      color: _segundosRestantesInicio <= 30
+                          ? Colors.red.shade900
+                          : Colors.deepOrange.shade900,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          const AudioSettingsButton(),
+        ],
       ),
       body: SafeArea(
         child: _tableroSeleccionado == null

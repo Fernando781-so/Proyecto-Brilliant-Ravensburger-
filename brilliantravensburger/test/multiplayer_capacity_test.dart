@@ -16,6 +16,7 @@ class _FakeLobbyMultiplayerService implements MultiplayerService {
   int leaveCalls = 0;
   int disposeCalls = 0;
   bool lastCreatedRanked = false;
+  bool lastCreatedTimeTrial = false;
   bool connected = true;
   Completer<void>? pendingCreateCompleter;
 
@@ -74,9 +75,11 @@ class _FakeLobbyMultiplayerService implements MultiplayerService {
     required int boardId,
     required List<List<int>> zonePointValues,
     bool ranked = false,
+    bool timeTrial = false,
   }) async {
     createCalls++;
     lastCreatedRanked = ranked;
+    lastCreatedTimeTrial = timeTrial;
     if (pendingCreateCompleter != null) {
       await pendingCreateCompleter!.future;
     }
@@ -88,6 +91,7 @@ class _FakeLobbyMultiplayerService implements MultiplayerService {
       targetPoints: 26,
       status: 'waiting',
       ranked: ranked,
+      timeTrial: timeTrial,
       players: [
         MultiplayerPlayer(
           id: 'player-host',
@@ -1039,6 +1043,50 @@ void main() {
         expect(hostService.joinCalls, 1);
         expect(find.text('AB12CD'), findsOneWidget);
         expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'permite activar y desactivar el modo Contra reloj al crear la sala',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final service = _FakeLobbyMultiplayerService();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'Anfitrión',
+              service: service,
+            ),
+          ),
+        );
+
+        expect(find.text('Contra reloj'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('time-trial-mode-switch')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pumpAndSettle();
+
+        expect(service.lastCreatedTimeTrial, isTrue);
+        expect(find.byKey(const ValueKey('room-time-trial-badge')), findsOneWidget);
+        expect(find.text('⏱ Contra reloj (2 min)'), findsOneWidget);
+
+        await tester.tap(find.text('Salir de la sala'));
+        await tester.pumpAndSettle();
+
+        // Desactivar Contra reloj y volver a crear la sala
+        await tester.tap(find.byKey(const ValueKey('time-trial-mode-switch')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.pumpAndSettle();
+
+        expect(service.lastCreatedTimeTrial, isFalse);
+        expect(find.byKey(const ValueKey('room-time-trial-badge')), findsNothing);
       },
     );
   });

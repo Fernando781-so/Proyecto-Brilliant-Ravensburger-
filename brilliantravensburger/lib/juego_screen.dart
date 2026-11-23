@@ -10,12 +10,14 @@ class JuegoScreen extends StatefulWidget {
   final Tablero tablero;
   final int? tableroSeleccionado;
   final MultiplayerService? multiplayer;
+  final bool contraReloj;
 
   const JuegoScreen({
     super.key,
     required this.tablero,
     this.tableroSeleccionado,
     this.multiplayer,
+    this.contraReloj = false,
   });
 
   @override
@@ -41,6 +43,11 @@ class _JuegoScreenState extends State<JuegoScreen>
   _GameSidePanel? _openSidePanel;
   final Set<String> _avisosZonasCapturadas = {};
   final Set<int> _zonasCompletadasLocal = {};
+  Timer? _turnTimer;
+  int _segundosRestantesTurno = duracionTurnoContraReloj.inSeconds;
+
+  bool get _contraRelojActivo =>
+      widget.contraReloj || (widget.multiplayer?.room?.timeTrial == true);
 
   final Random _random = Random();
   late final AnimationController _drawerController;
@@ -100,6 +107,9 @@ class _JuegoScreenState extends State<JuegoScreen>
           });
         } else {
           unawaited(AudioService.instance.reproducirDado());
+          if (_contraRelojActivo) {
+            _reiniciarTemporizadorTurno();
+          }
         }
       }
       return;
@@ -112,6 +122,48 @@ class _JuegoScreenState extends State<JuegoScreen>
         _lanzarDadosAutomatico();
       }
     });
+  }
+
+  void _reiniciarTemporizadorTurno() {
+    _turnTimer?.cancel();
+    if (!_contraRelojActivo || partidaFinalizada) return;
+    _segundosRestantesTurno = duracionTurnoContraReloj.inSeconds;
+    _turnTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || partidaFinalizada) {
+        timer.cancel();
+        return;
+      }
+      if (_segundosRestantesTurno <= 1) {
+        timer.cancel();
+        setState(() => _segundosRestantesTurno = 0);
+        _alVencerTiempoTurno();
+      } else {
+        setState(() => _segundosRestantesTurno--);
+      }
+    });
+  }
+
+  void _detenerTemporizadorTurno() {
+    _turnTimer?.cancel();
+    _turnTimer = null;
+  }
+
+  void _alVencerTiempoTurno() {
+    if (!mounted || partidaFinalizada) return;
+    final service = widget.multiplayer;
+
+    // Si el jugador ya jugó y confirmó su turno y solo espera a los demás,
+    // conserva su número colocado intacto sin perderlo.
+    if (service != null &&
+        (_esperandoDadosCompartidos ||
+            service.myTurnIsComplete ||
+            service.myBoardIsComplete)) {
+      return;
+    }
+
+    // Si ya colocó un número después del ancla pero no presionó "Avanzar Turno",
+    // se acepta automáticamente esa jugada; si no colocó nada, pierde el turno y avanza.
+    _siguienteTurno();
   }
 
   int get numeroAncla => anclaSeleccionada == 1 ? dado1 : dado2;
@@ -188,6 +240,7 @@ class _JuegoScreenState extends State<JuegoScreen>
 
   @override
   void dispose() {
+    _detenerTemporizadorTurno();
     final service = widget.multiplayer;
     if (service != null) {
       service.removeListener(_onMultiplayerUpdate);
@@ -475,12 +528,16 @@ class _JuegoScreenState extends State<JuegoScreen>
     }
 
     if (partidaFinalizada && !_dialogoFinalMostrado) {
+      _detenerTemporizadorTurno();
       _dialogoFinalMostrado = true;
       unawaited(AudioService.instance.reproducirFinPartida());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _mostrarResultadoMultijugador();
       });
     } else if (nuevoTurno && !partidaFinalizada) {
+      if (_contraRelojActivo) {
+        _reiniciarTemporizadorTurno();
+      }
       unawaited(AudioService.instance.reproducirDado());
       if (!hayMovimientosPosibles(widget.tablero, dado1, dado2)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -654,6 +711,9 @@ class _JuegoScreenState extends State<JuegoScreen>
     }
 
     unawaited(AudioService.instance.reproducirDado());
+    if (_contraRelojActivo) {
+      _reiniciarTemporizadorTurno();
+    }
     int d1 = _random.nextInt(6) + 1;
     int d2 = _random.nextInt(6) + 1;
 
@@ -843,6 +903,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   void _finalizarPartida() {
     if (partidaFinalizada || !widget.tablero.estaCompleto) return;
 
+    _detenerTemporizadorTurno();
     unawaited(AudioService.instance.reproducirFinPartida());
     setState(() {
       partidaFinalizada = true;
@@ -1315,6 +1376,34 @@ class _JuegoScreenState extends State<JuegoScreen>
         ),
         centerTitle: true,
         actions: [
+          if (_contraRelojActivo && !partidaFinalizada)
+            Padding(
+              padding: const EdgeInsets.only(right: 4.0),
+              child: Center(
+                child: Container(
+                  key: const ValueKey('turn-timer-badge'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _segundosRestantesTurno <= 20
+                        ? Colors.red.shade100
+                        : Colors.deepOrange.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '⏱ ${formatearTiempoContraReloj(_segundosRestantesTurno)}',
+                    style: TextStyle(
+                      color: _segundosRestantesTurno <= 20
+                          ? Colors.red.shade900
+                          : Colors.deepOrange.shade900,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 4.0),
             child: Center(

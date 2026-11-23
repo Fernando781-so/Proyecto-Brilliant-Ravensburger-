@@ -6,6 +6,16 @@ import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 
 import 'app_config.dart';
 
+const Duration duracionTurnoContraReloj = Duration(minutes: 2);
+const Duration duracionInicioContraReloj = Duration(minutes: 5);
+
+String formatearTiempoContraReloj(int segundosTotales) {
+  final seguros = max(0, segundosTotales);
+  final minutos = (seguros ~/ 60).toString().padLeft(2, '0');
+  final segundos = (seguros % 60).toString().padLeft(2, '0');
+  return '$minutos:$segundos';
+}
+
 String obtenerNivelRanked(int puntosAcumulados) {
   if (puntosAcumulados >= 1200) return 'EL Brilliant';
   if (puntosAcumulados >= 750) return 'Megamente';
@@ -135,6 +145,7 @@ class MultiplayerRoom {
     required this.status,
     required this.players,
     this.ranked = false,
+    this.timeTrial = false,
   });
 
   final String code;
@@ -145,6 +156,7 @@ class MultiplayerRoom {
   final String status;
   final List<MultiplayerPlayer> players;
   final bool ranked;
+  final bool timeTrial;
 
   int get setupCompleteCount =>
       players.where((player) => player.setupComplete).length;
@@ -161,6 +173,7 @@ class MultiplayerRoom {
       targetPoints: (json['targetPoints'] as num).toInt(),
       status: '${json['status']}',
       ranked: json['ranked'] == true || json['mode'] == 'ranked',
+      timeTrial: json['timeTrial'] == true || json['contraReloj'] == true,
       players: (json['players'] as List<dynamic>? ?? const [])
           .map(
             (player) => MultiplayerPlayer.fromJson(
@@ -406,6 +419,7 @@ class MultiplayerService extends ChangeNotifier {
     required int boardId,
     required List<List<int>> zonePointValues,
     bool ranked = false,
+    bool timeTrial = false,
   }) async {
     _hasLeftRoom = false;
     final result = await _request('lobby:create', {
@@ -413,6 +427,7 @@ class MultiplayerService extends ChangeNotifier {
       'boardId': boardId,
       'zonePointValues': zonePointValues,
       'ranked': ranked,
+      'timeTrial': timeTrial,
     });
     _acceptRoomResult(result);
   }

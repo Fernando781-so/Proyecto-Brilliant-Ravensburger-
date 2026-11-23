@@ -18,6 +18,9 @@ class _FakeMultiplayerService implements MultiplayerService {
   int ownScore = 30;
   int leaveCalls = 0;
   int disposeCalls = 0;
+  int completeTurnCalls = 0;
+  List<int>? lastSubmittedBoard;
+  int completeSetupCalls = 0;
 
   @override
   MultiplayerRoom? room;
@@ -78,8 +81,31 @@ class _FakeMultiplayerService implements MultiplayerService {
     required List<int> completedZones,
     required bool finished,
   }) async {
+    completeTurnCalls++;
+    lastSubmittedBoard = List<int>.of(board);
     turnComplete = true;
     boardComplete = finished;
+    for (final listener in List<VoidCallback>.of(_listeners)) {
+      listener();
+    }
+  }
+
+  @override
+  Future<void> completeInitialSetup({required List<int> board}) async {
+    completeSetupCalls++;
+    lastSubmittedBoard = List<int>.of(board);
+    game = MultiplayerGameState(
+      turn: game?.turn ?? 1,
+      dice: game?.dice ?? const [1, 2],
+      phase: game?.phase ?? 'setup',
+      setupCompletePlayerIds: {
+        ...?game?.setupCompletePlayerIds,
+        if (playerId != null) playerId!,
+      },
+      completedPlayerIds: game?.completedPlayerIds ?? const {},
+      zoneClaims: game?.zoneClaims ?? const {},
+      winnerId: game?.winnerId,
+    );
     for (final listener in List<VoidCallback>.of(_listeners)) {
       listener();
     }
@@ -1628,4 +1654,478 @@ void main() {
       expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoFinPartida);
     },
   );
+
+  group('Modo Contra reloj (temporizador)', () {
+    Tablero _crearTableroConIniciales() {
+      final board = crearTablero(1);
+      final initialPositions = obtenerPosicionesInicialesTablero(1);
+      for (var i = 0; i < initialPositions.length; i++) {
+        final pos = initialPositions[i];
+        board.celdas[pos[0]][pos[1]] = i + 1;
+      }
+      return board;
+    }
+
+    List<int> _dadosConMovimiento(Tablero board) {
+      for (var d1 = 1; d1 <= 6; d1++) {
+        for (var d2 = 1; d2 <= 6; d2++) {
+          if (obtenerPosicionesValidas(board, d1, d2).isNotEmpty ||
+              obtenerPosicionesValidas(board, d2, d1).isNotEmpty) {
+            return [d1, d2];
+          }
+        }
+      }
+      return [1, 2];
+    }
+
+    testWidgets(
+      'cuando ya jugaste y esperas a los demás y se acaba el tiempo, no pierdes el número colocado',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final board = _crearTableroConIniciales();
+        final dice = _dadosConMovimiento(board);
+        final service = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'TT0001',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+              MultiplayerPlayer(
+                id: 'player-second',
+                username: 'Luis',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+            ],
+          ),
+          game: MultiplayerGameState(
+            turn: 1,
+            dice: dice,
+            phase: 'playing',
+            setupCompletePlayerIds: const {'player-top', 'player-second'},
+            completedPlayerIds: const {},
+            zoneClaims: const {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: JuegoScreen(tablero: board, multiplayer: service),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const ValueKey('turn-timer-badge')), findsOneWidget);
+        expect(find.text('⏱ 02:00'), findsOneWidget);
+
+        // Coloca un número y confirma el turno
+        await tester.tap(_primeraCasillaValida());
+        await tester.pump();
+        final celdasAntesDeConfirmar = board.celdas
+            .expand((row) => row)
+            .where((v) => v != 0)
+            .length;
+        expect(celdasAntesDeConfirmar, 7);
+
+        await tester.tap(find.text('Avanzar Turno'));
+        await tester.pump();
+        expect(find.text('ESPERANDO A LOS JUGADORES'), findsOneWidget);
+        expect(service.completeTurnCalls, 1);
+
+        // Se acaba el tiempo de 2 minutos mientras espera a los demás
+        await tester.pump(const Duration(minutes: 2));
+        expect(find.text('⏱ 00:00'), findsOneWidget);
+
+        // El número colocado sigue intacto y no se perdió ni se reenvió vacío
+        final celdasDespuesDeTiempo = board.celdas
+            .expand((row) => row)
+            .where((v) => v != 0)
+            .length;
+        expect(celdasDespuesDeTiempo, 7);
+        expect(service.completeTurnCalls, 1);
+      },
+    );
+
+    testWidgets(
+      'cuando colocas un número después del ancla y no presionas confirmar jugada antes de acabar el tiempo, aún se acepta',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final board = _crearTableroConIniciales();
+        final dice = _dadosConMovimiento(board);
+        final service = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'TT0002',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+              MultiplayerPlayer(
+                id: 'player-second',
+                username: 'Luis',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+            ],
+          ),
+          game: MultiplayerGameState(
+            turn: 1,
+            dice: dice,
+            phase: 'playing',
+            setupCompletePlayerIds: const {'player-top', 'player-second'},
+            completedPlayerIds: const {},
+            zoneClaims: const {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: JuegoScreen(tablero: board, multiplayer: service),
+          ),
+        );
+        await tester.pump();
+
+        // Coloca el número después del ancla pero NO presiona "Avanzar Turno"
+        await tester.tap(_primeraCasillaValida());
+        await tester.pump();
+        expect(find.text('Avanzar Turno'), findsOneWidget);
+        expect(service.completeTurnCalls, 0);
+
+        // Pasan los 2 minutos del turno
+        await tester.pump(const Duration(minutes: 2));
+
+        // Debe aceptar y enviar la jugada con el 7mo número colocado
+        expect(service.completeTurnCalls, 1);
+        expect(
+          service.lastSubmittedBoard!.where((v) => v != 0).length,
+          7,
+        );
+        expect(
+          board.celdas.expand((row) => row).where((v) => v != 0).length,
+          7,
+        );
+      },
+    );
+
+    testWidgets(
+      'el tiempo sigue avanzando mientras ves los jugadores conectados o las instrucciones',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final board = _crearTableroConIniciales();
+        final dice = _dadosConMovimiento(board);
+        final service = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'TT0003',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+              MultiplayerPlayer(
+                id: 'player-second',
+                username: 'Luis',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: true,
+              ),
+            ],
+          ),
+          game: MultiplayerGameState(
+            turn: 1,
+            dice: dice,
+            phase: 'playing',
+            setupCompletePlayerIds: const {'player-top', 'player-second'},
+            completedPlayerIds: const {},
+            zoneClaims: const {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: JuegoScreen(tablero: board, multiplayer: service),
+          ),
+        );
+        await tester.pump();
+        expect(find.text('⏱ 02:00'), findsOneWidget);
+
+        // Abre el panel de jugadores conectados y deja pasar 10 segundos
+        await tester.tap(find.byKey(const ValueKey('drawer-tab-players')));
+        await tester.pump(const Duration(seconds: 10));
+        expect(find.text('⏱ 01:50'), findsOneWidget);
+
+        // Cierra jugadores y abre instrucciones, deja pasar 15 segundos más
+        await tester.tap(find.byKey(const ValueKey('drawer-tab-players')));
+        await tester.pump(const Duration(seconds: 1));
+        await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+        await tester.pump(const Duration(seconds: 15));
+        expect(find.text('⏱ 01:34'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'al terminar la partida desaparece el temporizador',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final board = _crearTableroConIniciales();
+        final service = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'TT0004',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 20,
+                finished: false,
+                setupComplete: true,
+              ),
+              MultiplayerPlayer(
+                id: 'player-second',
+                username: 'Luis',
+                ready: true,
+                connected: true,
+                score: 12,
+                finished: false,
+                setupComplete: true,
+              ),
+            ],
+          ),
+          game: const MultiplayerGameState(
+            turn: 5,
+            dice: [2, 4],
+            phase: 'playing',
+            setupCompletePlayerIds: {'player-top', 'player-second'},
+            completedPlayerIds: {},
+            zoneClaims: {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: JuegoScreen(tablero: board, multiplayer: service),
+          ),
+        );
+        await tester.pump();
+        expect(find.byKey(const ValueKey('turn-timer-badge')), findsOneWidget);
+
+        // Finaliza la partida
+        service.room = const MultiplayerRoom(
+          code: 'TT0004',
+          hostId: 'player-top',
+          capacity: 2,
+          boardId: 1,
+          targetPoints: 26,
+          status: 'finished',
+          timeTrial: true,
+          players: [
+            MultiplayerPlayer(
+              id: 'player-top',
+              username: 'Ana',
+              ready: true,
+              connected: true,
+              score: 26,
+              finished: true,
+              setupComplete: true,
+            ),
+            MultiplayerPlayer(
+              id: 'player-second',
+              username: 'Luis',
+              ready: true,
+              connected: true,
+              score: 12,
+              finished: true,
+              setupComplete: true,
+            ),
+          ],
+        );
+        service.game = const MultiplayerGameState(
+          turn: 5,
+          dice: [2, 4],
+          phase: 'finished',
+          setupCompletePlayerIds: {'player-top', 'player-second'},
+          completedPlayerIds: {'player-top', 'player-second'},
+          zoneClaims: {},
+          winnerId: 'player-top',
+        );
+        service.notifyListeners();
+        await tester.pump();
+
+        expect(find.byKey(const ValueKey('turn-timer-badge')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'muestra el temporizador de 5 minutos al elegir los números iniciales en modo Contra reloj',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final service = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'TT0005',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: true,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+              ),
+              MultiplayerPlayer(
+                id: 'player-second',
+                username: 'Luis',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+              ),
+            ],
+          ),
+          game: const MultiplayerGameState(
+            turn: 1,
+            dice: [1, 3],
+            phase: 'setup',
+            setupCompletePlayerIds: {},
+            completedPlayerIds: {},
+            zoneClaims: {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: InicioScreen(tableroInicial: 1, multiplayer: service),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byKey(const ValueKey('setup-timer-badge')), findsOneWidget);
+        expect(find.text('⏱ 05:00'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 5));
+        expect(find.text('⏱ 04:55'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'cuando no está activo el modo Contra reloj no se muestra el cronómetro en inicio ni en partida',
+      (tester) async {
+        _configurarSuperficie(tester);
+        final serviceSinContraReloj = _FakeMultiplayerService(
+          room: const MultiplayerRoom(
+            code: 'NORM01',
+            hostId: 'player-top',
+            capacity: 2,
+            boardId: 1,
+            targetPoints: 26,
+            status: 'playing',
+            timeTrial: false,
+            players: [
+              MultiplayerPlayer(
+                id: 'player-top',
+                username: 'Ana',
+                ready: true,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+              ),
+            ],
+          ),
+          game: const MultiplayerGameState(
+            turn: 1,
+            dice: [1, 2],
+            phase: 'setup',
+            setupCompletePlayerIds: {},
+            completedPlayerIds: {},
+            zoneClaims: {},
+            winnerId: null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: InicioScreen(
+              tableroInicial: 1,
+              multiplayer: serviceSinContraReloj,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.byKey(const ValueKey('setup-timer-badge')), findsNothing);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: JuegoScreen(
+              tablero: _crearTableroConIniciales(),
+              multiplayer: serviceSinContraReloj,
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.byKey(const ValueKey('turn-timer-badge')), findsNothing);
+      },
+    );
+  });
 }
