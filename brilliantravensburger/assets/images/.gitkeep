@@ -1,0 +1,5 @@
+# Coloca aquí tu imagen de fondo para la pantalla inicial.
+# Nombres soportados automáticamente por lib/welcome_screen.dart:
+# - fondo_inicio.png
+# - fondo_inicio.jpg
+# - fondo_inicio.webp

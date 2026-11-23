@@ -654,7 +654,9 @@ class _InicioScreenState extends State<InicioScreen> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: listo ? Colors.green.shade800 : Colors.black87,
+                        color: listo
+                            ? Colors.green.shade600
+                            : Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -981,7 +983,7 @@ class _EfectoExplosion extends StatelessWidget {
                   colors: [
                     Colors.yellow.shade400,
                     Colors.deepOrange,
-                    Colors.red.shade700.withOpacity(0.0),
+                    Colors.red.shade700.withValues(alpha: 0.0),
                   ],
                 ),
               ),

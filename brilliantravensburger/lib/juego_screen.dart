@@ -1637,8 +1637,8 @@ class _JuegoScreenState extends State<JuegoScreen>
                                     boxShadow: esValida
                                         ? [
                                             BoxShadow(
-                                              color: Colors.amber.withOpacity(
-                                                0.6,
+                                              color: Colors.amber.withValues(
+                                                alpha: 0.6,
                                               ),
                                               blurRadius: 8,
                                               spreadRadius: 2,
@@ -1854,7 +1854,7 @@ class _JuegoScreenState extends State<JuegoScreen>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 4,
               offset: const Offset(2, 2),
             ),

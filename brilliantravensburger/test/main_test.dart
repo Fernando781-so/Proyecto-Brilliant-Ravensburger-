@@ -3,10 +3,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:brilliantravensburger/lobby_screen.dart';
 import 'package:brilliantravensburger/main.dart' as app;
+import 'package:brilliantravensburger/theme_service.dart';
 
 void main() {
-  testWidgets('main opens the sign-in screen', (tester) async {
+  setUp(() {
+    ThemeService.instance.reiniciarEstadoParaPruebas();
+  });
+
+  testWidgets('main opens the illustrative welcome screen before sign-in', (
+    tester,
+  ) async {
     app.main();
+    await tester.pumpAndSettle();
+
+    expect(find.text('BRILLIANT'), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-login-button')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('welcome-register-button')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('welcome-login-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Iniciar Sesión'), findsOneWidget);
@@ -19,6 +36,9 @@ void main() {
     app.main();
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const ValueKey('welcome-login-button')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
     await tester.pumpAndSettle();
 
@@ -28,6 +48,9 @@ void main() {
 
   testWidgets('password visibility can be toggled', (tester) async {
     app.main();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('welcome-login-button')));
     await tester.pumpAndSettle();
 
     expect(
@@ -43,6 +66,43 @@ void main() {
       isFalse,
     );
     expect(find.byTooltip('Ocultar contraseña'), findsOneWidget);
+  });
+
+  testWidgets('permite cambiar el color del fondo entre blanco y negro', (
+    tester,
+  ) async {
+    app.main();
+    await tester.pumpAndSettle();
+
+    expect(ThemeService.instance.esFondoOscuro, isFalse);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('audio-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Color del fondo'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('fondo-negro-button')));
+    await tester.pumpAndSettle();
+
+    expect(ThemeService.instance.esFondoOscuro, isTrue);
+    expect(ThemeService.instance.colorFondo, Colors.black);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.dark,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('fondo-blanco-button')));
+    await tester.pumpAndSettle();
+
+    expect(ThemeService.instance.esFondoOscuro, isFalse);
+    expect(ThemeService.instance.colorFondo, Colors.white);
+    expect(
+      tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+      ThemeMode.light,
+    );
   });
 
   testWidgets('lobby creation mode only shows room configuration', (

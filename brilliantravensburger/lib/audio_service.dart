@@ -4,6 +4,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'theme_service.dart';
+
 /// Rutas centralizadas de los archivos de música y efectos de sonido.
 class AudioAssets {
   const AudioAssets._();
@@ -307,11 +309,12 @@ class AudioSettingsButton extends StatelessWidget {
 
 Future<void> mostrarDialogoConfiguracionAudio(BuildContext context) {
   final audio = AudioService.instance;
+  final theme = ThemeService.instance;
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
       return ListenableBuilder(
-        listenable: audio,
+        listenable: Listenable.merge([audio, theme]),
         builder: (context, _) {
           return AlertDialog(
             shape: RoundedRectangleBorder(
@@ -369,6 +372,70 @@ Future<void> mostrarDialogoConfiguracionAudio(BuildContext context) {
                       unawaited(audio.reproducirSelect());
                     }
                   },
+                ),
+                const Divider(),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Color del fondo',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('fondo-blanco-button'),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: !theme.esFondoOscuro
+                              ? Colors.blue.shade50
+                              : null,
+                          foregroundColor: !theme.esFondoOscuro
+                              ? Colors.blue.shade900
+                              : null,
+                          side: BorderSide(
+                            color: !theme.esFondoOscuro
+                                ? Colors.blue
+                                : Colors.grey,
+                            width: !theme.esFondoOscuro ? 2 : 1,
+                          ),
+                        ),
+                        onPressed: () {
+                          unawaited(audio.reproducirSelect());
+                          theme.establecerFondoOscuro(false);
+                        },
+                        icon: const Icon(Icons.light_mode, size: 18),
+                        label: const Text('Blanco'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        key: const ValueKey('fondo-negro-button'),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: theme.esFondoOscuro
+                              ? Colors.grey.shade800
+                              : null,
+                          foregroundColor: theme.esFondoOscuro
+                              ? Colors.white
+                              : null,
+                          side: BorderSide(
+                            color: theme.esFondoOscuro
+                                ? Colors.amber
+                                : Colors.grey,
+                            width: theme.esFondoOscuro ? 2 : 1,
+                          ),
+                        ),
+                        onPressed: () {
+                          unawaited(audio.reproducirSelect());
+                          theme.establecerFondoOscuro(true);
+                        },
+                        icon: const Icon(Icons.dark_mode, size: 18),
+                        label: const Text('Negro'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

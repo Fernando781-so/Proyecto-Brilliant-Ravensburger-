@@ -1656,7 +1656,7 @@ void main() {
   );
 
   group('Modo Contra reloj (temporizador)', () {
-    Tablero _crearTableroConIniciales() {
+    Tablero crearTableroConIniciales() {
       final board = crearTablero(1);
       final initialPositions = obtenerPosicionesInicialesTablero(1);
       for (var i = 0; i < initialPositions.length; i++) {
@@ -1666,7 +1666,7 @@ void main() {
       return board;
     }
 
-    List<int> _dadosConMovimiento(Tablero board) {
+    List<int> dadosConMovimiento(Tablero board) {
       for (var d1 = 1; d1 <= 6; d1++) {
         for (var d2 = 1; d2 <= 6; d2++) {
           if (obtenerPosicionesValidas(board, d1, d2).isNotEmpty ||
@@ -1682,8 +1682,8 @@ void main() {
       'cuando ya jugaste y esperas a los demás y se acaba el tiempo, no pierdes el número colocado',
       (tester) async {
         _configurarSuperficie(tester);
-        final board = _crearTableroConIniciales();
-        final dice = _dadosConMovimiento(board);
+        final board = crearTableroConIniciales();
+        final dice = dadosConMovimiento(board);
         final service = _FakeMultiplayerService(
           room: const MultiplayerRoom(
             code: 'TT0001',
@@ -1767,8 +1767,8 @@ void main() {
       'cuando colocas un número después del ancla y no presionas confirmar jugada antes de acabar el tiempo, aún se acepta',
       (tester) async {
         _configurarSuperficie(tester);
-        final board = _crearTableroConIniciales();
-        final dice = _dadosConMovimiento(board);
+        final board = crearTableroConIniciales();
+        final dice = dadosConMovimiento(board);
         final service = _FakeMultiplayerService(
           room: const MultiplayerRoom(
             code: 'TT0002',
@@ -1843,8 +1843,8 @@ void main() {
       'el tiempo sigue avanzando mientras ves los jugadores conectados o las instrucciones',
       (tester) async {
         _configurarSuperficie(tester);
-        final board = _crearTableroConIniciales();
-        final dice = _dadosConMovimiento(board);
+        final board = crearTableroConIniciales();
+        final dice = dadosConMovimiento(board);
         final service = _FakeMultiplayerService(
           room: const MultiplayerRoom(
             code: 'TT0003',
@@ -1912,7 +1912,7 @@ void main() {
       'al terminar la partida desaparece el temporizador',
       (tester) async {
         _configurarSuperficie(tester);
-        final board = _crearTableroConIniciales();
+        final board = crearTableroConIniciales();
         final service = _FakeMultiplayerService(
           room: const MultiplayerRoom(
             code: 'TT0004',
@@ -2118,7 +2118,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             home: JuegoScreen(
-              tablero: _crearTableroConIniciales(),
+              tablero: crearTableroConIniciales(),
               multiplayer: serviceSinContraReloj,
             ),
           ),

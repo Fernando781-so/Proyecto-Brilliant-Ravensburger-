@@ -9,7 +9,9 @@ import 'inicio_screen.dart';
 import 'lobby_screen.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  const AuthScreen({super.key, this.initialLogin = true});
+
+  final bool initialLogin;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -22,7 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isLogin = true;
+  late bool _isLogin;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   String? _token;
@@ -31,6 +33,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _isLogin = widget.initialLogin;
     unawaited(AudioService.instance.reproducirMusicaMenu());
     _restoreSession();
   }
