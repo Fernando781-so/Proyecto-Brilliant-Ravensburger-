@@ -1,3 +1,4 @@
+import 'package:brilliantravensburger/audio_service.dart';
 import 'package:brilliantravensburger/inicio_screen.dart';
 import 'package:brilliantravensburger/brilliantravensburger.dart';
 import 'package:brilliantravensburger/juego_screen.dart';
@@ -1391,6 +1392,240 @@ void main() {
       expect(runningGameService.disposeCalls, 1);
       expect(runningGameService.room, isNull);
       expect(find.text('Entrar a partida'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'reproduce música en bucle sin reiniciarse entre turnos, efectos de sonido y botón de engranaje',
+    (tester) async {
+      _configurarSuperficie(tester);
+      final audio = AudioService.instance;
+      audio.reiniciarEstadoParaPruebas();
+
+      // En partida casual inicia The Classroom.mp3 y no reinicia el ciclo al avanzar de turno
+      await tester.pumpWidget(const MaterialApp(home: InicioScreen()));
+      expect(find.byKey(const ValueKey('audio-settings-button')), findsOneWidget);
+
+      await _elegirTablero(tester, 1);
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoSelect);
+
+      // Coloca un número y luego muévelo a otra casilla para disparar la explosión
+      await _colocarNumero(tester, 1);
+      expect(
+        audio.historialSonidos,
+        contains(AudioAssets.sonidoColocarNumero),
+      );
+
+      await tester.tap(find.text('+').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ElevatedButton, '1'));
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoExplosion);
+
+      for (var numero = 2; numero <= 6; numero++) {
+        await _colocarNumero(tester, numero);
+      }
+
+      await tester.tap(find.text('¡LISTO! AVANZAR'));
+      await tester.pumpAndSettle();
+
+      expect(audio.pistaMusicaActual, AudioAssets.musicaPartidaCasual);
+      final iniciosMusicaAlEmpezar = audio.conteoIniciosMusica;
+      expect(iniciosMusicaAlEmpezar, 1);
+      expect(audio.historialSonidos, contains(AudioAssets.sonidoDado));
+
+      // Colocar y deshacer un número reproduce C_numero.mp3 y D_numero.mp3
+      await tester.tap(_primeraCasillaValida());
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoColocarNumero);
+
+      await tester.tap(find.text('Deshacer'));
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoDeshacerNumero);
+
+      // Avanzar turno NO reinicia la música de fondo
+      await _jugarPrimerMovimientoDisponible(tester);
+      expect(audio.pistaMusicaActual, AudioAssets.musicaPartidaCasual);
+      expect(audio.conteoIniciosMusica, iniciosMusicaAlEmpezar);
+
+      // El botón de engranaje está presente y permite desactivar y activar música y sonidos por separado
+      await tester.tap(find.byKey(const ValueKey('audio-settings-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Configuración de audio'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('toggle-musica-switch')));
+      await tester.pumpAndSettle();
+      expect(audio.musicaActiva, isFalse);
+      expect(audio.pistaMusicaActual, isNull);
+
+      await tester.tap(find.byKey(const ValueKey('toggle-sonidos-switch')));
+      await tester.pumpAndSettle();
+      expect(audio.sonidosActivos, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('toggle-musica-switch')));
+      await tester.pumpAndSettle();
+      expect(audio.musicaActiva, isTrue);
+      expect(audio.pistaMusicaActual, AudioAssets.musicaPartidaCasual);
+
+      await tester.tap(find.byKey(const ValueKey('toggle-sonidos-switch')));
+      await tester.pumpAndSettle();
+      expect(audio.sonidosActivos, isTrue);
+
+      await tester.tap(
+        find.byKey(const ValueKey('close-audio-settings-button')),
+      );
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoBack);
+    },
+  );
+
+  testWidgets(
+    'usa Final Destination.mp3 en clasificatoria y distingue sonido de zona propia vs otro jugador',
+    (tester) async {
+      _configurarSuperficie(tester);
+      final audio = AudioService.instance;
+      audio.reiniciarEstadoParaPruebas();
+
+      final service = _FakeMultiplayerService(
+        room: const MultiplayerRoom(
+          code: 'RANK55',
+          hostId: 'player-top',
+          capacity: 2,
+          boardId: 1,
+          targetPoints: 26,
+          status: 'playing',
+          ranked: true,
+          players: [
+            MultiplayerPlayer(
+              id: 'player-top',
+              username: 'Ana',
+              ready: true,
+              connected: true,
+              score: 0,
+              finished: false,
+              setupComplete: true,
+              rankedPoints: 100,
+            ),
+            MultiplayerPlayer(
+              id: 'player-rival',
+              username: 'Luis',
+              ready: true,
+              connected: true,
+              score: 0,
+              finished: false,
+              setupComplete: true,
+              rankedPoints: 300,
+            ),
+          ],
+        ),
+        game: const MultiplayerGameState(
+          turn: 1,
+          dice: [2, 5],
+          phase: 'playing',
+          setupCompletePlayerIds: {'player-top', 'player-rival'},
+          completedPlayerIds: {},
+          zoneClaims: {},
+          winnerId: null,
+        ),
+      )..playerId = 'player-top';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: JuegoScreen(tablero: crearTablero(1), multiplayer: service),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(audio.pistaMusicaActual, AudioAssets.musicaPartidaClasificatoria);
+      expect(audio.conteoIniciosMusica, 1);
+
+      // Cuando tú tomas una zona suena Zona.wav
+      service.game = const MultiplayerGameState(
+        turn: 1,
+        dice: [2, 5],
+        phase: 'playing',
+        setupCompletePlayerIds: {'player-top', 'player-rival'},
+        completedPlayerIds: {},
+        zoneClaims: {
+          0: [
+            {'playerId': 'player-top', 'username': 'Ana', 'points': 8},
+          ],
+        },
+        winnerId: null,
+      );
+      service.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoZonaPropia);
+
+      // Cuando alguien más captura una zona suena Gato_riendose_Meme.wav y el cambio de turno no reinicia la música
+      service.game = const MultiplayerGameState(
+        turn: 2,
+        dice: [3, 4],
+        phase: 'playing',
+        setupCompletePlayerIds: {'player-top', 'player-rival'},
+        completedPlayerIds: {},
+        zoneClaims: {
+          0: [
+            {'playerId': 'player-top', 'username': 'Ana', 'points': 8},
+          ],
+          1: [
+            {'playerId': 'player-rival', 'username': 'Luis', 'points': 4},
+          ],
+        },
+        winnerId: null,
+      );
+      service.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(
+        audio.historialSonidos,
+        contains(AudioAssets.sonidoZonaOtroJugador),
+      );
+      expect(audio.conteoIniciosMusica, 1);
+
+      // Al terminar la partida suena End_game.mp3
+      service.room = const MultiplayerRoom(
+        code: 'RANK55',
+        hostId: 'player-top',
+        capacity: 2,
+        boardId: 1,
+        targetPoints: 26,
+        status: 'finished',
+        ranked: true,
+        players: [
+          MultiplayerPlayer(
+            id: 'player-top',
+            username: 'Ana',
+            ready: true,
+            connected: true,
+            score: 26,
+            finished: true,
+            setupComplete: true,
+            rankedPoints: 100,
+          ),
+          MultiplayerPlayer(
+            id: 'player-rival',
+            username: 'Luis',
+            ready: true,
+            connected: true,
+            score: 14,
+            finished: true,
+            setupComplete: true,
+            rankedPoints: 300,
+          ),
+        ],
+      );
+      service.game = const MultiplayerGameState(
+        turn: 2,
+        dice: [3, 4],
+        phase: 'finished',
+        setupCompletePlayerIds: {'player-top', 'player-rival'},
+        completedPlayerIds: {'player-top', 'player-rival'},
+        zoneClaims: {},
+        winnerId: 'player-top',
+      );
+      service.notifyListeners();
+      await tester.pumpAndSettle();
+      expect(audio.ultimoSonidoReproducido, AudioAssets.sonidoFinPartida);
     },
   );
 }

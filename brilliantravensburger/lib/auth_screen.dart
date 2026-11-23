@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
 import 'app_config.dart';
+import 'audio_service.dart';
 import 'inicio_screen.dart';
 import 'lobby_screen.dart';
 
@@ -29,6 +31,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AudioService.instance.reproducirMusicaMenu());
     _restoreSession();
   }
 
@@ -363,7 +366,10 @@ class _AuthScreenState extends State<AuthScreen> {
     // VISTA CUANDO EL USUARIO YA ESTÁ AUTENTICADO
     if (_token != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Panel de Jugador')),
+        appBar: AppBar(
+          title: const Text('Panel de Jugador'),
+          actions: const [AudioSettingsButton()],
+        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -384,10 +390,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    await Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const InicioScreen()),
                     );
+                    if (mounted) {
+                      unawaited(AudioService.instance.reproducirMusicaMenu());
+                    }
                   },
                   icon: const Icon(Icons.play_arrow),
                   label: const Text(
@@ -400,8 +410,9 @@ class _AuthScreenState extends State<AuthScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => LobbyScreen(
                           token: _token!,
@@ -409,6 +420,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       ),
                     );
+                    if (mounted) {
+                      unawaited(AudioService.instance.reproducirMusicaMenu());
+                    }
                   },
                   icon: const Icon(Icons.add_circle_outline),
                   label: const Text('Crear sala'),
@@ -418,8 +432,9 @@ class _AuthScreenState extends State<AuthScreen> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => LobbyScreen(
                           token: _token!,
@@ -428,6 +443,9 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       ),
                     );
+                    if (mounted) {
+                      unawaited(AudioService.instance.reproducirMusicaMenu());
+                    }
                   },
                   icon: const Icon(Icons.login),
                   label: const Text('Unirse a sala'),
@@ -437,6 +455,7 @@ class _AuthScreenState extends State<AuthScreen> {
               TextButton.icon(
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
                 onPressed: () {
+                  unawaited(AudioService.instance.reproducirSelect());
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -446,7 +465,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                       actions: [
                         TextButton(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () {
+                            unawaited(AudioService.instance.reproducirBack());
+                            Navigator.pop(context);
+                          },
                           child: const Text('Cancelar'),
                         ),
                         ElevatedButton(
@@ -455,6 +477,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () {
+                            unawaited(AudioService.instance.reproducirSelect());
                             Navigator.pop(context);
                             _deleteAccount();
                           },
@@ -469,7 +492,12 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: _isLoading ? null : _logout,
+                onPressed: _isLoading
+                    ? null
+                    : () {
+                        unawaited(AudioService.instance.reproducirBack());
+                        _logout();
+                      },
                 child: const Text(
                   'Cerrar sesión',
                   style: TextStyle(color: Colors.grey),
@@ -486,6 +514,7 @@ class _AuthScreenState extends State<AuthScreen> {
       appBar: AppBar(
         title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'),
         centerTitle: true,
+        actions: const [AudioSettingsButton()],
       ),
       body: SingleChildScrollView(
         // <--- Agregado para evitar desbordamiento
@@ -518,9 +547,12 @@ class _AuthScreenState extends State<AuthScreen> {
                         tooltip: _isPasswordVisible
                             ? 'Ocultar contraseña'
                             : 'Mostrar contraseña',
-                        onPressed: () => setState(
-                          () => _isPasswordVisible = !_isPasswordVisible,
-                        ),
+                        onPressed: () {
+                          unawaited(AudioService.instance.reproducirSelect());
+                          setState(
+                            () => _isPasswordVisible = !_isPasswordVisible,
+                          );
+                        },
                         icon: Icon(
                           _isPasswordVisible
                               ? Icons.visibility_off
@@ -540,7 +572,10 @@ class _AuthScreenState extends State<AuthScreen> {
                           backgroundColor: Colors.blue.shade700,
                           foregroundColor: Colors.white,
                         ),
-                        onPressed: _submit,
+                        onPressed: () {
+                          unawaited(AudioService.instance.reproducirSelect());
+                          _submit();
+                        },
                         child: Text(
                           _isLogin ? 'INGRESAR' : 'REGISTRARSE',
                           style: const TextStyle(
@@ -552,7 +587,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () => setState(() => _isLogin = !_isLogin),
+                onPressed: () {
+                  unawaited(AudioService.instance.reproducirSelect());
+                  setState(() => _isLogin = !_isLogin);
+                },
                 child: Text(
                   _isLogin
                       ? '¿No tienes cuenta? Regístrate'

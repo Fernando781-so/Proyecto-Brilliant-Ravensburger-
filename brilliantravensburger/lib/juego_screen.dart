@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'multiplayer_service.dart';
 import 'reglas_tablero_guide.dart';
@@ -39,6 +40,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   List<int>? _casillaJugada;
   _GameSidePanel? _openSidePanel;
   final Set<String> _avisosZonasCapturadas = {};
+  final Set<int> _zonasCompletadasLocal = {};
 
   final Random _random = Random();
   late final AnimationController _drawerController;
@@ -65,7 +67,18 @@ class _JuegoScreenState extends State<JuegoScreen>
       end: Offset.zero,
     ).animate(curve);
 
+    for (var i = 0; i < widget.tablero.zonas.length; i++) {
+      if (widget.tablero.zonas[i].esValida(widget.tablero)) {
+        _zonasCompletadasLocal.add(i);
+      }
+    }
+
     final service = widget.multiplayer;
+    unawaited(
+      AudioService.instance.reproducirMusicaPartida(
+        clasificatoria: service?.room?.ranked == true,
+      ),
+    );
     if (service != null) {
       service.addListener(_onMultiplayerUpdate);
       final game = service.game;
@@ -81,9 +94,12 @@ class _JuegoScreenState extends State<JuegoScreen>
         if (service.room?.status == 'finished') {
           partidaFinalizada = true;
           _dialogoFinalMostrado = true;
+          unawaited(AudioService.instance.reproducirFinPartida());
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _mostrarResultadoMultijugador();
           });
+        } else {
+          unawaited(AudioService.instance.reproducirDado());
         }
       }
       return;
@@ -104,6 +120,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       widget.multiplayer?.room?.status == 'playing' && !_salidaConfirmada;
 
   void _solicitarSalida() {
+    unawaited(AudioService.instance.reproducirBack());
     unawaited(_confirmarSalida());
   }
 
@@ -121,11 +138,17 @@ class _JuegoScreenState extends State<JuegoScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirSelect());
+              Navigator.of(dialogContext).pop(false);
+            },
             child: const Text('Seguir jugando'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirBack());
+              Navigator.of(dialogContext).pop(true);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
@@ -176,10 +199,12 @@ class _JuegoScreenState extends State<JuegoScreen>
 
   void _toggleSidePanel(_GameSidePanel panel) {
     if (_openSidePanel == panel) {
+      unawaited(AudioService.instance.reproducirBack());
       _closeSidePanel();
       return;
     }
 
+    unawaited(AudioService.instance.reproducirSelect());
     setState(() => _openSidePanel = panel);
     _drawerController.forward();
   }
@@ -398,6 +423,21 @@ class _JuegoScreenState extends State<JuegoScreen>
       }
     });
 
+    if (nuevosReclamos.isNotEmpty) {
+      final capturoPropio = nuevosReclamos.any(
+        (reclamo) => '${reclamo.value['playerId'] ?? ''}' == service.playerId,
+      );
+      final capturoOtro = nuevosReclamos.any(
+        (reclamo) => '${reclamo.value['playerId'] ?? ''}' != service.playerId,
+      );
+      if (capturoOtro) {
+        unawaited(AudioService.instance.reproducirZonaOtroJugador());
+      }
+      if (capturoPropio) {
+        unawaited(AudioService.instance.reproducirZonaPropia());
+      }
+    }
+
     for (final reclamo in nuevosReclamos) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -436,15 +476,17 @@ class _JuegoScreenState extends State<JuegoScreen>
 
     if (partidaFinalizada && !_dialogoFinalMostrado) {
       _dialogoFinalMostrado = true;
+      unawaited(AudioService.instance.reproducirFinPartida());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _mostrarResultadoMultijugador();
       });
-    } else if (nuevoTurno &&
-        !partidaFinalizada &&
-        !hayMovimientosPosibles(widget.tablero, dado1, dado2)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _mostrarAvisoSinMovimientos();
-      });
+    } else if (nuevoTurno && !partidaFinalizada) {
+      unawaited(AudioService.instance.reproducirDado());
+      if (!hayMovimientosPosibles(widget.tablero, dado1, dado2)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _mostrarAvisoSinMovimientos();
+        });
+      }
     }
   }
 
@@ -557,11 +599,17 @@ class _JuegoScreenState extends State<JuegoScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirBack());
+              Navigator.of(dialogContext).pop();
+            },
             child: const Text('Volver al tablero'),
           ),
           ElevatedButton(
-            onPressed: () => _mostrarTablerosMultijugador(service),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirSelect());
+              _mostrarTablerosMultijugador(service);
+            },
             child: const Text('Ver tableros'),
           ),
         ],
@@ -605,6 +653,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       return;
     }
 
+    unawaited(AudioService.instance.reproducirDado());
     int d1 = _random.nextInt(6) + 1;
     int d2 = _random.nextInt(6) + 1;
 
@@ -647,6 +696,7 @@ class _JuegoScreenState extends State<JuegoScreen>
         actions: [
           ElevatedButton(
             onPressed: () {
+              unawaited(AudioService.instance.reproducirSelect());
               Navigator.of(context).pop();
               _siguienteTurno();
             },
@@ -658,6 +708,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   }
 
   void _confirmarSaltarTurno() {
+    unawaited(AudioService.instance.reproducirSelect());
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -674,7 +725,10 @@ class _JuegoScreenState extends State<JuegoScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirBack());
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
@@ -683,6 +737,7 @@ class _JuegoScreenState extends State<JuegoScreen>
               foregroundColor: Colors.white,
             ),
             onPressed: () {
+              unawaited(AudioService.instance.reproducirSelect());
               Navigator.of(context).pop();
               _siguienteTurno();
             },
@@ -699,8 +754,20 @@ class _JuegoScreenState extends State<JuegoScreen>
     final service = widget.multiplayer;
     if (service != null) {
       if (!service.canPlay) return;
+      unawaited(AudioService.instance.reproducirSelect());
       _enviarTurnoMultijugador(service);
       return;
+    }
+
+    var capturoZonaLocal = false;
+    for (var i = 0; i < widget.tablero.zonas.length; i++) {
+      if (widget.tablero.zonas[i].esValida(widget.tablero) &&
+          _zonasCompletadasLocal.add(i)) {
+        capturoZonaLocal = true;
+      }
+    }
+    if (capturoZonaLocal) {
+      unawaited(AudioService.instance.reproducirZonaPropia());
     }
 
     if (widget.tablero.estaCompleto) {
@@ -765,6 +832,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       return;
     }
 
+    unawaited(AudioService.instance.reproducirDeshacerNumero());
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
     setState(() {
       widget.tablero.celdas[casilla[0]][casilla[1]] = 0;
@@ -775,6 +843,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   void _finalizarPartida() {
     if (partidaFinalizada || !widget.tablero.estaCompleto) return;
 
+    unawaited(AudioService.instance.reproducirFinPartida());
     setState(() {
       partidaFinalizada = true;
     });
@@ -814,7 +883,10 @@ class _JuegoScreenState extends State<JuegoScreen>
         ),
         actions: [
           ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
+            onPressed: () {
+              unawaited(AudioService.instance.reproducirSelect());
+              Navigator.of(dialogContext).pop();
+            },
             child: const Text('Ver tablero'),
           ),
         ],
@@ -1182,6 +1254,7 @@ class _JuegoScreenState extends State<JuegoScreen>
 
     if (!esValida) return;
 
+    unawaited(AudioService.instance.reproducirColocarNumero());
     setState(() {
       widget.tablero.celdas[fila][columna] = numeroColocar;
       _casillaJugada = [fila, columna];
@@ -1243,7 +1316,7 @@ class _JuegoScreenState extends State<JuegoScreen>
         centerTitle: true,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
+            padding: const EdgeInsets.only(right: 4.0),
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -1264,6 +1337,7 @@ class _JuegoScreenState extends State<JuegoScreen>
               ),
             ),
           ),
+          const AudioSettingsButton(),
         ],
       ),
       body: SafeArea(
@@ -1349,6 +1423,9 @@ class _JuegoScreenState extends State<JuegoScreen>
                             onTap: () {
                               if (service?.canPlay != false &&
                                   _casillaJugada == null) {
+                                unawaited(
+                                  AudioService.instance.reproducirSelect(),
+                                );
                                 setState(() => anclaSeleccionada = 1);
                               }
                             },
@@ -1359,6 +1436,9 @@ class _JuegoScreenState extends State<JuegoScreen>
                                     _casillaJugada != null
                                 ? null
                                 : () {
+                                    unawaited(
+                                      AudioService.instance.reproducirSelect(),
+                                    );
                                     setState(() {
                                       anclaSeleccionada = anclaSeleccionada == 1
                                           ? 2
@@ -1385,6 +1465,9 @@ class _JuegoScreenState extends State<JuegoScreen>
                             onTap: () {
                               if (service?.canPlay != false &&
                                   _casillaJugada == null) {
+                                unawaited(
+                                  AudioService.instance.reproducirSelect(),
+                                );
                                 setState(() => anclaSeleccionada = 2);
                               }
                             },

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'inicio_screen.dart';
 import 'multiplayer_service.dart';
@@ -39,6 +42,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AudioService.instance.reproducirMusicaMenu());
     if (widget.service != null) {
       _service = widget.service;
       _service!.addListener(_onServiceUpdate);
@@ -137,6 +141,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _createRoom() {
+    unawaited(AudioService.instance.reproducirSelect());
     final board = crearTablero(_boardId);
     final points = board.zonas.map((zone) => zone.bolsaPuntos).toList();
     return _runRoomAction(
@@ -150,6 +155,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _joinRoom() {
+    unawaited(AudioService.instance.reproducirSelect());
     return _runRoomAction((service) => service.joinRoom(_codeController.text));
   }
 
@@ -173,6 +179,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _toggleReady(MultiplayerPlayer player) async {
+    if (player.ready) {
+      unawaited(AudioService.instance.reproducirBack());
+    } else {
+      unawaited(AudioService.instance.reproducirSelect());
+    }
     await _runRoomAction((service) => service.setReady(!player.ready));
   }
 
@@ -181,6 +192,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         service.playerId != service.room?.hostId) {
       return;
     }
+    unawaited(AudioService.instance.reproducirSelect());
     final board = crearTablero(boardId);
     final points = board.zonas.map((zone) => zone.bolsaPuntos).toList();
     await _runRoomAction(
@@ -196,12 +208,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return PopScope<Object?>(
       canPop: _allowExit || (room == null && !_loading && !_leavingRoom),
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) _handleLobbyExit();
+        if (!didPop) {
+          unawaited(AudioService.instance.reproducirBack());
+          _handleLobbyExit();
+        }
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.joinMode ? 'Unirse a sala' : 'Crear sala'),
           centerTitle: true,
+          actions: const [AudioSettingsButton()],
         ),
         body: SafeArea(
           child: Padding(
@@ -250,7 +266,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
             onChanged: _loading
                 ? null
-                : (value) => setState(() => _capacity = value ?? 2),
+                : (value) {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    setState(() => _capacity = value ?? 2);
+                  },
           ),
           const SizedBox(height: 10),
           SwitchListTile(
@@ -282,7 +301,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
             value: _isRanked,
             onChanged: _loading
                 ? null
-                : (value) => setState(() => _isRanked = value),
+                : (value) {
+                    unawaited(AudioService.instance.reproducirSelect());
+                    setState(() => _isRanked = value);
+                  },
           ),
           const SizedBox(height: 12),
           const Text(
@@ -320,7 +342,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
                             key: ValueKey('creation-board-$boardId'),
                             onTap: _loading
                                 ? null
-                                : () => setState(() => _boardId = boardId),
+                                : () {
+                                    unawaited(
+                                      AudioService.instance.reproducirSelect(),
+                                    );
+                                    setState(() => _boardId = boardId);
+                                  },
                             child: SizedBox(
                               height: 76,
                               child: Padding(
@@ -613,7 +640,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
         TextButton(
           onPressed: _loading
               ? null
-              : () => _runRoomAction((service) => service.leaveRoom()),
+              : () {
+                  unawaited(AudioService.instance.reproducirBack());
+                  _runRoomAction((service) => service.leaveRoom());
+                },
           child: const Text('Salir de la sala'),
         ),
       ],

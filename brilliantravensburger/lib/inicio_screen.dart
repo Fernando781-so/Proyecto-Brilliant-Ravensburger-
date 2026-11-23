@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
 import 'multiplayer_service.dart';
@@ -37,6 +40,11 @@ class _InicioScreenState extends State<InicioScreen> {
 
     final service = widget.multiplayer;
     if (service != null) {
+      unawaited(
+        AudioService.instance.reproducirMusicaPartida(
+          clasificatoria: service.room?.ranked == true,
+        ),
+      );
       final savedBoard = service.myBoard;
       if (savedBoard != null && savedBoard.length == 49) {
         for (var index = 0; index < savedBoard.length; index++) {
@@ -84,6 +92,11 @@ class _InicioScreenState extends State<InicioScreen> {
     _navegandoAlJuego = true;
     final service = widget.multiplayer;
     if (service != null) {
+      unawaited(
+        AudioService.instance.reproducirMusicaPartida(
+          clasificatoria: service.room?.ranked == true,
+        ),
+      );
       final savedBoard = service.myBoard;
       if (savedBoard != null && savedBoard.length == 49) {
         for (var index = 0; index < savedBoard.length; index++) {
@@ -203,6 +216,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   void _seleccionarTablero(int numero) {
+    unawaited(AudioService.instance.reproducirSelect());
     setState(() {
       tablero = crearTablero(numero);
       bloc = InicioBloc(
@@ -215,6 +229,7 @@ class _InicioScreenState extends State<InicioScreen> {
   }
 
   void _mostrarReglasDelTablero() {
+    unawaited(AudioService.instance.reproducirSelect());
     final boardId = _tableroSeleccionado ?? 1;
     showModalBottomSheet<void>(
       context: context,
@@ -238,7 +253,10 @@ class _InicioScreenState extends State<InicioScreen> {
                     ),
                     IconButton(
                       tooltip: 'Cerrar reglas',
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () {
+                        unawaited(AudioService.instance.reproducirBack());
+                        Navigator.of(context).pop();
+                      },
                       icon: const Icon(Icons.close),
                     ),
                   ],
@@ -345,6 +363,14 @@ class _InicioScreenState extends State<InicioScreen> {
                           }
                         });
 
+                        if (origenAnterior != null) {
+                          unawaited(AudioService.instance.reproducirExplosion());
+                        } else {
+                          unawaited(
+                            AudioService.instance.reproducirColocarNumero(),
+                          );
+                        }
+
                         Navigator.of(context).pop();
 
                         if (origenAnterior != null) {
@@ -394,6 +420,7 @@ class _InicioScreenState extends State<InicioScreen> {
                 const SizedBox(height: 20),
                 TextButton.icon(
                   onPressed: () {
+                    unawaited(AudioService.instance.reproducirExplosion());
                     setState(() {
                       _posicionExplosion = [fila, columna];
                       tablero.celdas[fila][columna] = 0;
@@ -414,7 +441,10 @@ class _InicioScreenState extends State<InicioScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                unawaited(AudioService.instance.reproducirBack());
+                Navigator.of(context).pop();
+              },
               child: const Text('Cancelar'),
             ),
           ],
@@ -436,6 +466,7 @@ class _InicioScreenState extends State<InicioScreen> {
         ),
         centerTitle: true,
         elevation: 1,
+        actions: const [AudioSettingsButton()],
       ),
       body: SafeArea(
         child: _tableroSeleccionado == null
@@ -499,6 +530,9 @@ class _InicioScreenState extends State<InicioScreen> {
                       TextButton.icon(
                         onPressed: widget.multiplayer == null
                             ? () {
+                                unawaited(
+                                  AudioService.instance.reproducirBack(),
+                                );
                                 setState(() {
                                   _tableroSeleccionado = null;
                                   for (final fila in tablero.celdas) {
@@ -640,6 +674,9 @@ class _InicioScreenState extends State<InicioScreen> {
                                 !_enviandoConfiguracion &&
                                 (widget.multiplayer?.canPlay ?? true)
                             ? () {
+                                unawaited(
+                                  AudioService.instance.reproducirSelect(),
+                                );
                                 final service = widget.multiplayer;
                                 if (service == null) {
                                   _abrirJuego();
