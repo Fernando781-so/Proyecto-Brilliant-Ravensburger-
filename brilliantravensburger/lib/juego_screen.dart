@@ -748,7 +748,7 @@ class _JuegoScreenState extends State<JuegoScreen>
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
             SizedBox(width: 8),
-            Text('Sin movimientos'),
+            Expanded(child: Text('Sin movimientos')),
           ],
         ),
         content: Text(
@@ -778,7 +778,7 @@ class _JuegoScreenState extends State<JuegoScreen>
           children: [
             Icon(Icons.help_outline, color: Colors.blue, size: 28),
             SizedBox(width: 8),
-            Text('¿Saltar turno?'),
+            Expanded(child: Text('¿Saltar turno?')),
           ],
         ),
         content: const Text(
@@ -922,7 +922,7 @@ class _JuegoScreenState extends State<JuegoScreen>
           children: [
             Icon(Icons.emoji_events, color: Colors.amber, size: 28),
             SizedBox(width: 8),
-            Text('¡Partida finalizada!'),
+            Expanded(child: Text('¡Partida finalizada!')),
           ],
         ),
         content: Column(

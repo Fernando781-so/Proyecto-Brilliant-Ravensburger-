@@ -8,11 +8,13 @@ class TableroPreview extends StatelessWidget {
     required this.boardId,
     this.size = 64,
     this.highlightedZoneIndex,
+    this.showStartingPositions = true,
   });
 
   final int boardId;
   final double size;
   final int? highlightedZoneIndex;
+  final bool showStartingPositions;
 
   Color _colorForRegion(Region region) {
     switch (region) {
@@ -60,9 +62,11 @@ class TableroPreview extends StatelessWidget {
           final region = zoneIndex >= 0
               ? board.zonas[zoneIndex].region
               : Region.verde;
-          final isStartingPosition = startingPositions.any(
-            (position) => position[0] == row && position[1] == column,
-          );
+          final isStartingPosition =
+              showStartingPositions &&
+              startingPositions.any(
+                (position) => position[0] == row && position[1] == column,
+              );
           final hasHighlight = highlightedZoneIndex != null;
           final isHighlighted = hasHighlight && zoneIndex == highlightedZoneIndex;
           final baseColor = _colorForRegion(region);

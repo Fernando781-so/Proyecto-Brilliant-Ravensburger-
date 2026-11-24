@@ -163,6 +163,7 @@ class _ZoneRulePreview extends StatelessWidget {
             boardId: boardId,
             size: 96,
             highlightedZoneIndex: zoneIndex,
+            showStartingPositions: false,
           ),
           const SizedBox(width: 12),
           Expanded(

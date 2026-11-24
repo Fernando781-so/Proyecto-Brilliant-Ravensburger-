@@ -3,6 +3,7 @@ import 'package:brilliantravensburger/inicio_screen.dart';
 import 'package:brilliantravensburger/brilliantravensburger.dart';
 import 'package:brilliantravensburger/juego_screen.dart';
 import 'package:brilliantravensburger/multiplayer_service.dart';
+import 'package:brilliantravensburger/tablero_preview.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2198,10 +2199,12 @@ void main() {
       await tester.tap(lowerOrangeTile);
       await tester.pumpAndSettle();
 
-      expect(
-        find.byKey(ValueKey('zone-board-preview-${lowerOrangeIndex + 1}')),
-        findsOneWidget,
+      final previewFinder = find.byKey(
+        ValueKey('zone-board-preview-${lowerOrangeIndex + 1}'),
       );
+      expect(previewFinder, findsOneWidget);
+      final previewWidget = tester.widget<TableroPreview>(previewFinder);
+      expect(previewWidget.showStartingPositions, isFalse);
       expect(find.text('Solo números del 1 al 3.'), findsOneWidget);
 
       // Cierra el drawer y presiona la flecha de retroceder al menú: debe volver a Trophy Gallery.mp3
