@@ -16,29 +16,82 @@ String formatearTiempoContraReloj(int segundosTotales) {
   return '$minutos:$segundos';
 }
 
-String obtenerNivelRanked(int puntosAcumulados) {
-  if (puntosAcumulados >= 1200) return 'EL Brilliant';
-  if (puntosAcumulados >= 750) return 'Megamente';
-  if (puntosAcumulados >= 500) return 'Experto';
-  if (puntosAcumulados >= 300) return 'Nuevo héroe';
+const int eloInicial = 1000;
+const int eloMinimo = 100;
+const int eloFactorKProvisional = 40;
+const int eloFactorKNormal = 32;
+const int eloFactorKMaestro = 24;
+
+String obtenerNivelRanked(int elo) {
+  if (elo >= 1500) return 'EL Brilliant';
+  if (elo >= 1300) return 'Megamente';
+  if (elo >= 1150) return 'Experto';
+  if (elo >= 1000) return 'Nuevo héroe';
   return 'Principiante';
 }
 
-int obtenerIndiceNivelRanked(int puntosAcumulados) {
-  if (puntosAcumulados >= 1200) return 4;
-  if (puntosAcumulados >= 750) return 3;
-  if (puntosAcumulados >= 500) return 2;
-  if (puntosAcumulados >= 300) return 1;
+int obtenerIndiceNivelRanked(int elo) {
+  if (elo >= 1500) return 4;
+  if (elo >= 1300) return 3;
+  if (elo >= 1150) return 2;
+  if (elo >= 1000) return 1;
   return 0;
 }
 
-bool esJugadorDestacadoSuperior({
-  required int misPuntosRanked,
-  required int rivalPuntosRanked,
+int obtenerFactorKElo({required int elo, int partidasRanked = 0}) {
+  if (partidasRanked < 10) return eloFactorKProvisional;
+  if (elo >= 1500) return eloFactorKMaestro;
+  return eloFactorKNormal;
+}
+
+Map<String, int> calcularCambiosEloMultijugador(
+  List<MultiplayerPlayer> jugadores, {
+  String? winnerId,
 }) {
-  return rivalPuntosRanked > misPuntosRanked ||
-      obtenerIndiceNivelRanked(rivalPuntosRanked) >
-          obtenerIndiceNivelRanked(misPuntosRanked);
+  final cambios = <String, int>{};
+  if (jugadores.length < 2) {
+    for (final jugador in jugadores) {
+      cambios[jugador.id] = 0;
+    }
+    return cambios;
+  }
+
+  final cantidadRivales = jugadores.length - 1;
+  for (final jugador in jugadores) {
+    final eloPropio = max(eloMinimo, jugador.rankedPoints);
+    final k = obtenerFactorKElo(
+      elo: eloPropio,
+      partidasRanked: jugador.rankedGames,
+    );
+    var sumaDiferencias = 0.0;
+
+    for (final rival in jugadores) {
+      if (rival.id == jugador.id) continue;
+      final eloRival = max(eloMinimo, rival.rankedPoints);
+      final esperado = 1.0 / (1.0 + pow(10, (eloRival - eloPropio) / 400.0));
+
+      final double resultadoReal;
+      if (jugador.score > rival.score) {
+        resultadoReal = 1.0;
+      } else if (jugador.score < rival.score) {
+        resultadoReal = 0.0;
+      } else if (winnerId != null && jugador.id == winnerId) {
+        resultadoReal = 1.0;
+      } else if (winnerId != null && rival.id == winnerId) {
+        resultadoReal = 0.0;
+      } else {
+        resultadoReal = 0.5;
+      }
+
+      sumaDiferencias += resultadoReal - esperado;
+    }
+
+    final deltaBruto = ((k / cantidadRivales) * sumaDiferencias).round();
+    final nuevoElo = max(eloMinimo, eloPropio + deltaBruto);
+    cambios[jugador.id] = nuevoElo - eloPropio;
+  }
+
+  return cambios;
 }
 
 int calcularCambioPuntosRanked({
@@ -46,47 +99,51 @@ int calcularCambioPuntosRanked({
   required int misPuntosRanked,
   required List<int> rivalesPuntosRanked,
   required bool esGanador,
+  int misPartidasRanked = 0,
+  List<int>? puntosRivalesPartida,
   int? ganadorPuntosRanked,
   int? puntosGanadorPartida,
 }) {
-  final puntajePropio = max(0, puntosPartida);
-  final hayRivalSuperior = rivalesPuntosRanked.any(
-    (rivalPts) => esJugadorDestacadoSuperior(
-      misPuntosRanked: misPuntosRanked,
-      rivalPuntosRanked: rivalPts,
+  final participantes = <MultiplayerPlayer>[
+    MultiplayerPlayer(
+      id: 'self',
+      username: 'self',
+      ready: true,
+      connected: true,
+      score: max(0, puntosPartida),
+      finished: true,
+      setupComplete: true,
+      rankedPoints: max(eloMinimo, misPuntosRanked),
+      rankedGames: max(0, misPartidasRanked),
     ),
-  );
-
-  if (esGanador) {
-    if (hayRivalSuperior) {
-      return (puntajePropio * 1.2).round();
-    }
-    return puntajePropio;
-  }
-
-  final perdioContraSuperior = ganadorPuntosRanked != null
-      ? esJugadorDestacadoSuperior(
-          misPuntosRanked: misPuntosRanked,
-          rivalPuntosRanked: ganadorPuntosRanked,
-        )
-      : hayRivalSuperior;
-  if (perdioContraSuperior) {
-    return 0;
-  }
-
-  final diferencia =
-      puntosGanadorPartida != null && puntosGanadorPartida > puntajePropio
-      ? puntosGanadorPartida - puntajePropio
-      : (puntajePropio > 0 ? puntajePropio : 10);
-  final nuevosPuntos = max(0, misPuntosRanked - diferencia);
-  return nuevosPuntos - misPuntosRanked;
+    for (var i = 0; i < rivalesPuntosRanked.length; i++)
+      MultiplayerPlayer(
+        id: 'opp-$i',
+        username: 'opp-$i',
+        ready: true,
+        connected: true,
+        score: puntosRivalesPartida != null && i < puntosRivalesPartida.length
+            ? puntosRivalesPartida[i]
+            : (esGanador
+                  ? max(0, puntosPartida - 1)
+                  : max(puntosPartida + 1, puntosGanadorPartida ?? 1)),
+        finished: true,
+        setupComplete: true,
+        rankedPoints: max(eloMinimo, rivalesPuntosRanked[i]),
+      ),
+  ];
+  return calcularCambiosEloMultijugador(
+        participantes,
+        winnerId: esGanador ? 'self' : null,
+      )['self'] ??
+      0;
 }
 
 int aplicarCambioPuntosRanked({
   required int misPuntosRanked,
   required int cambio,
 }) {
-  return max(0, misPuntosRanked + cambio);
+  return max(eloMinimo, misPuntosRanked + cambio);
 }
 
 class MultiplayerPlayer {
@@ -98,7 +155,8 @@ class MultiplayerPlayer {
     required this.score,
     required this.finished,
     required this.setupComplete,
-    this.rankedPoints = 0,
+    this.rankedPoints = eloInicial,
+    this.rankedGames = 0,
     this.rankedDelta,
     this.board,
   });
@@ -111,6 +169,7 @@ class MultiplayerPlayer {
   final bool finished;
   final bool setupComplete;
   final int rankedPoints;
+  final int rankedGames;
   final int? rankedDelta;
   final List<int>? board;
 
@@ -120,6 +179,7 @@ class MultiplayerPlayer {
 
   factory MultiplayerPlayer.fromJson(Map<String, dynamic> json) {
     final rawBoard = json['board'] as List<dynamic>?;
+    final parsedRanked = (json['rankedPoints'] as num?)?.toInt();
     return MultiplayerPlayer(
       id: '${json['id']}',
       username: '${json['username'] ?? 'Jugador'}',
@@ -128,7 +188,10 @@ class MultiplayerPlayer {
       score: (json['score'] as num?)?.toInt() ?? 0,
       finished: json['finished'] == true,
       setupComplete: json['setupComplete'] == true,
-      rankedPoints: max(0, (json['rankedPoints'] as num?)?.toInt() ?? 0),
+      rankedPoints: parsedRanked != null
+          ? max(eloMinimo, parsedRanked)
+          : eloInicial,
+      rankedGames: max(0, (json['rankedGames'] as num?)?.toInt() ?? 0),
       rankedDelta: (json['rankedDelta'] as num?)?.toInt(),
       board: rawBoard?.map((value) => (value as num).toInt()).toList(),
     );

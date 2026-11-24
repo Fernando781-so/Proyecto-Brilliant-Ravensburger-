@@ -613,22 +613,13 @@ class _JuegoScreenState extends State<JuegoScreen>
               if (room.ranked)
                 Builder(
                   builder: (context) {
-                    final isWinner = effectiveWinner?.id == player.id;
-                    final opponentRankedPoints = room.players
-                        .where((other) => other.id != player.id)
-                        .map((other) => other.rankedPoints)
-                        .toList();
+                    final fallbackDeltas = calcularCambiosEloMultijugador(
+                      room.players,
+                      winnerId: effectiveWinner?.id,
+                    );
                     final delta =
-                        player.rankedDelta ??
-                        calcularCambioPuntosRanked(
-                          puntosPartida: player.score,
-                          misPuntosRanked: player.rankedPoints,
-                          rivalesPuntosRanked: opponentRankedPoints,
-                          esGanador: isWinner,
-                          ganadorPuntosRanked: effectiveWinner?.rankedPoints,
-                          puntosGanadorPartida: effectiveWinner?.score,
-                        );
-                    final totalRanked = player.rankedDelta != null
+                        player.rankedDelta ?? fallbackDeltas[player.id] ?? 0;
+                    final totalElo = player.rankedDelta != null
                         ? player.rankedPoints
                         : aplicarCambioPuntosRanked(
                             misPuntosRanked: player.rankedPoints,
@@ -638,7 +629,7 @@ class _JuegoScreenState extends State<JuegoScreen>
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        'Ranked: $deltaLabel pts → ${obtenerNivelRanked(totalRanked)} ($totalRanked pts)',
+                        'ELO: $deltaLabel → ${obtenerNivelRanked(totalElo)} ($totalElo ELO)',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

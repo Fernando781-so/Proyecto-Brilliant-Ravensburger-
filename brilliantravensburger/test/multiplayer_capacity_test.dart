@@ -579,87 +579,126 @@ void main() {
   });
 
   group('Modo Ranked (Clasificatoria) y niveles en sala de espera', () {
-    test('asigna el nivel de ranked según los puntos acumulados', () {
-      expect(obtenerNivelRanked(0), 'Principiante');
+    test('asigna el nivel de ranked según el ELO', () {
       expect(obtenerNivelRanked(100), 'Principiante');
-      expect(obtenerNivelRanked(299), 'Principiante');
-      expect(obtenerNivelRanked(300), 'Nuevo héroe');
-      expect(obtenerNivelRanked(499), 'Nuevo héroe');
-      expect(obtenerNivelRanked(500), 'Experto');
-      expect(obtenerNivelRanked(749), 'Experto');
-      expect(obtenerNivelRanked(750), 'Megamente');
-      expect(obtenerNivelRanked(1199), 'Megamente');
-      expect(obtenerNivelRanked(1200), 'EL Brilliant');
+      expect(obtenerNivelRanked(999), 'Principiante');
+      expect(obtenerNivelRanked(1000), 'Nuevo héroe');
+      expect(obtenerNivelRanked(1149), 'Nuevo héroe');
+      expect(obtenerNivelRanked(1150), 'Experto');
+      expect(obtenerNivelRanked(1299), 'Experto');
+      expect(obtenerNivelRanked(1300), 'Megamente');
+      expect(obtenerNivelRanked(1499), 'Megamente');
+      expect(obtenerNivelRanked(1500), 'EL Brilliant');
       expect(obtenerNivelRanked(1800), 'EL Brilliant');
     });
 
-    test(
-      'no baja puntos al perder contra un jugador destacado por encima de ti',
-      () {
-        final delta = calcularCambioPuntosRanked(
-          puntosPartida: 18,
-          misPuntosRanked: 100,
-          rivalesPuntosRanked: const [300],
-          esGanador: false,
-          ganadorPuntosRanked: 300,
-          puntosGanadorPartida: 26,
-        );
+    test('usa factor K dinámico: 40 primeras 10 partidas, 32 normal y 24 en EL Brilliant', () {
+      expect(obtenerFactorKElo(elo: 1000, partidasRanked: 0), 40);
+      expect(obtenerFactorKElo(elo: 1600, partidasRanked: 9), 40);
+      expect(obtenerFactorKElo(elo: 1000, partidasRanked: 10), 32);
+      expect(obtenerFactorKElo(elo: 1499, partidasRanked: 25), 32);
+      expect(obtenerFactorKElo(elo: 1500, partidasRanked: 10), 24);
+    });
 
-        expect(delta, 0);
-        expect(
-          aplicarCambioPuntosRanked(misPuntosRanked: 100, cambio: delta),
-          100,
-        );
-      },
-    );
+    test('calcula ELO multijugador por pares en salas de 2 y 3 jugadores y empates', () {
+      // 2 jugadores iguales (1000 vs 1000, K=40): +20 / -20
+      final duelo = calcularCambiosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'p1',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 30,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 0,
+        ),
+        MultiplayerPlayer(
+          id: 'p2',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 18,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 0,
+        ),
+      ]);
+      expect(duelo['p1'], 20);
+      expect(duelo['p2'], -20);
 
-    test(
-      'aumenta un 20% los puntos ganados al vencer a un jugador por encima de ti',
-      () {
-        final delta = calcularCambioPuntosRanked(
-          puntosPartida: 25,
-          misPuntosRanked: 100,
-          rivalesPuntosRanked: const [300],
-          esGanador: true,
-        );
+      // 3 jugadores FFA normalizado por N-1: menor ELO que gana a 2 superiores gana más
+      final ffa = calcularCambiosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'p1',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 42,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 15,
+        ),
+        MultiplayerPlayer(
+          id: 'p2',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 30,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1200,
+          rankedGames: 15,
+        ),
+        MultiplayerPlayer(
+          id: 'p3',
+          username: 'Marta',
+          ready: true,
+          connected: true,
+          score: 20,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1400,
+          rankedGames: 15,
+        ),
+      ]);
+      expect(ffa['p1']!, greaterThan(20));
+      expect(ffa['p3']!, lessThan(-20));
 
-        expect(delta, 30); // 25 + 20% = 30
-        expect(
-          aplicarCambioPuntosRanked(misPuntosRanked: 100, cambio: delta),
-          130,
-        );
-      },
-    );
-
-    test(
-      'suma puntos normales al ganar a un rival de igual o menor rango y resta al perder contra uno no superior',
-      () {
-        final winDelta = calcularCambioPuntosRanked(
-          puntosPartida: 26,
-          misPuntosRanked: 500,
-          rivalesPuntosRanked: const [300],
-          esGanador: true,
-        );
-        expect(winDelta, 26);
-
-        final lossDelta = calcularCambioPuntosRanked(
-          puntosPartida: 18,
-          misPuntosRanked: 500,
-          rivalesPuntosRanked: const [300],
-          esGanador: false,
-          ganadorPuntosRanked: 300,
-          puntosGanadorPartida: 26,
-        );
-        expect(lossDelta, -8);
-        expect(
-          aplicarCambioPuntosRanked(misPuntosRanked: 500, cambio: lossDelta),
-          492,
-        );
-      },
-    );
+      // Empate entre iguales: 0 cambio
+      final empate = calcularCambiosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'p1',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 25,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 10,
+        ),
+        MultiplayerPlayer(
+          id: 'p2',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 25,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 10,
+        ),
+      ]);
+      expect(empate['p1'], 0);
+      expect(empate['p2'], 0);
+    });
 
     testWidgets(
-      'muestra los 5 niveles de ranked en la sala de espera según puntos acumulados',
+      'muestra los 5 niveles de ranked y ELO en la sala de espera',
       (tester) async {
         tester.view.physicalSize = const Size(1000, 1200);
         tester.view.devicePixelRatio = 1;
@@ -683,7 +722,7 @@ void main() {
                 score: 0,
                 finished: false,
                 setupComplete: false,
-                rankedPoints: 100,
+                rankedPoints: 900,
               ),
               MultiplayerPlayer(
                 id: 'p2',
@@ -693,7 +732,7 @@ void main() {
                 score: 0,
                 finished: false,
                 setupComplete: false,
-                rankedPoints: 300,
+                rankedPoints: 1000,
               ),
               MultiplayerPlayer(
                 id: 'p3',
@@ -703,7 +742,7 @@ void main() {
                 score: 0,
                 finished: false,
                 setupComplete: false,
-                rankedPoints: 500,
+                rankedPoints: 1150,
               ),
               MultiplayerPlayer(
                 id: 'p4',
@@ -713,7 +752,7 @@ void main() {
                 score: 0,
                 finished: false,
                 setupComplete: false,
-                rankedPoints: 750,
+                rankedPoints: 1300,
               ),
               MultiplayerPlayer(
                 id: 'p5',
@@ -723,7 +762,7 @@ void main() {
                 score: 0,
                 finished: false,
                 setupComplete: false,
-                rankedPoints: 1200,
+                rankedPoints: 1500,
               ),
             ],
           );
@@ -740,20 +779,11 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
-        expect(
-          find.text('Principiante (100 puntos acumulados)'),
-          findsOneWidget,
-        );
-        expect(
-          find.text('Nuevo héroe (300 puntos acumulados)'),
-          findsOneWidget,
-        );
-        expect(find.text('Experto (500 puntos acumulados)'), findsOneWidget);
-        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
-        expect(
-          find.text('EL Brilliant (1200 puntos acumulados)'),
-          findsOneWidget,
-        );
+        expect(find.text('Principiante (900 ELO)'), findsOneWidget);
+        expect(find.text('Nuevo héroe (1000 ELO)'), findsOneWidget);
+        expect(find.text('Experto (1150 ELO)'), findsOneWidget);
+        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
+        expect(find.text('EL Brilliant (1500 ELO)'), findsOneWidget);
       },
     );
 
@@ -761,7 +791,7 @@ void main() {
       'permite salir de una sala en espera y crear otra de inmediato sin error',
       (tester) async {
         final fakeService = _FakeLobbyMultiplayerService(
-          initialRankedPoints: 300,
+          initialRankedPoints: 1000,
         );
 
         await tester.pumpWidget(
@@ -786,10 +816,7 @@ void main() {
         expect(fakeService.createCalls, 1);
         expect(fakeService.lastCreatedRanked, isTrue);
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(
-          find.text('Nuevo héroe (300 puntos acumulados)'),
-          findsOneWidget,
-        );
+        expect(find.text('Nuevo héroe (1000 ELO)'), findsOneWidget);
 
         await tester.tap(find.text('Salir de la sala'));
         await tester.pumpAndSettle();
@@ -827,7 +854,8 @@ void main() {
               'score': 25,
               'finished': true,
               'setupComplete': true,
-              'rankedPoints': 130,
+              'rankedPoints': 980,
+              'rankedGames': 5,
               'rankedDelta': 30,
             },
             {
@@ -838,40 +866,42 @@ void main() {
               'score': 18,
               'finished': true,
               'setupComplete': true,
-              'rankedPoints': 300,
-              'rankedDelta': 0,
+              'rankedPoints': 1170,
+              'rankedGames': 12,
+              'rankedDelta': -30,
             },
           ],
         });
 
         expect(room.ranked, isTrue);
-        expect(room.players.first.rankedPoints, 130);
+        expect(room.players.first.rankedPoints, 980);
+        expect(room.players.first.rankedGames, 5);
         expect(room.players.first.rankedDelta, 30);
         expect(room.players.first.rankedLevel, 'Principiante');
         expect(room.players.first.rankedTier, 0);
-        expect(room.players.last.rankedPoints, 300);
-        expect(room.players.last.rankedDelta, 0);
-        expect(room.players.last.rankedLevel, 'Nuevo héroe');
-        expect(room.players.last.rankedTier, 1);
+        expect(room.players.last.rankedPoints, 1170);
+        expect(room.players.last.rankedGames, 12);
+        expect(room.players.last.rankedDelta, -30);
+        expect(room.players.last.rankedLevel, 'Experto');
+        expect(room.players.last.rankedTier, 2);
       },
     );
 
     test(
-      'nunca reduce los puntos de clasificatoria por debajo de 0 al perder',
+      'nunca reduce el ELO por debajo del piso mínimo de 100 al perder',
       () {
         final delta = calcularCambioPuntosRanked(
           puntosPartida: 5,
-          misPuntosRanked: 10,
-          rivalesPuntosRanked: const [10],
+          misPuntosRanked: 105,
+          rivalesPuntosRanked: const [105],
           esGanador: false,
-          ganadorPuntosRanked: 10,
           puntosGanadorPartida: 26,
         );
 
-        expect(delta, -10);
+        expect(delta, -5);
         expect(
-          aplicarCambioPuntosRanked(misPuntosRanked: 10, cambio: delta),
-          0,
+          aplicarCambioPuntosRanked(misPuntosRanked: 105, cambio: delta),
+          100,
         );
       },
     );
@@ -884,7 +914,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final firstService = _FakeLobbyMultiplayerService(
-          initialRankedPoints: 100,
+          initialRankedPoints: 900,
         )..pendingCreateCompleter = Completer<void>();
 
         await tester.pumpWidget(
@@ -937,7 +967,7 @@ void main() {
 
         // Al volver a entrar y crear otra sala o unirse, funciona al primer intento
         final secondService = _FakeLobbyMultiplayerService(
-          initialRankedPoints: 500,
+          initialRankedPoints: 1150,
         );
         await tester.pumpWidget(
           MaterialApp(
@@ -956,7 +986,7 @@ void main() {
 
         expect(secondService.createCalls, 1);
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(find.text('Experto (500 puntos acumulados)'), findsOneWidget);
+        expect(find.text('Experto (1150 ELO)'), findsOneWidget);
       },
     );
 
@@ -968,7 +998,7 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         final hostService = _FakeLobbyMultiplayerService(
-          initialRankedPoints: 750,
+          initialRankedPoints: 1300,
         );
 
         await tester.pumpWidget(
@@ -1022,7 +1052,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
+        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
 
         // Sale de la sala en espera usando navegación hacia atrás
         await tester.binding.handlePopRoute();
@@ -1042,7 +1072,7 @@ void main() {
 
         expect(hostService.joinCalls, 1);
         expect(find.text('AB12CD'), findsOneWidget);
-        expect(find.text('Megamente (750 puntos acumulados)'), findsOneWidget);
+        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
       },
     );
 

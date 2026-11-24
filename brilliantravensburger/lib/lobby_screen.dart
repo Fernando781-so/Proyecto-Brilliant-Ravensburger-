@@ -677,7 +677,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '${player.rankedLevel} (${player.rankedPoints} puntos acumulados)',
+                          '${player.rankedLevel} (${player.rankedPoints} ELO)',
                           key: ValueKey('player-rank-${player.id}'),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,

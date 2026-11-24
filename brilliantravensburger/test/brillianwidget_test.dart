@@ -1212,7 +1212,7 @@ void main() {
               score: 25,
               finished: true,
               setupComplete: true,
-              rankedPoints: 100,
+              rankedPoints: 1000,
             ),
             MultiplayerPlayer(
               id: 'player-luis',
@@ -1222,7 +1222,7 @@ void main() {
               score: 18,
               finished: true,
               setupComplete: true,
-              rankedPoints: 300,
+              rankedPoints: 1200,
             ),
           ],
         ),
@@ -1249,24 +1249,24 @@ void main() {
 
       expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
       expect(find.text('Ganador: Ana'), findsOneWidget);
-      // 25 pts + 20% = +30 pts -> 100 + 30 = 130 pts (Principiante)
+      // Ana (1000 ELO, K=40) vence a Luis (1200 ELO): +30 ELO -> 1030 ELO (Nuevo héroe)
       expect(
-        find.text('Ranked: +30 pts → Principiante (130 pts)'),
+        find.text('ELO: +30 → Nuevo héroe (1030 ELO)'),
         findsOneWidget,
       );
-      // Luis tenía 300 pts y perdió contra Ana (100 pts, inferior): pierde diferencia (25 - 18 = 7) -> 293 pts
+      // Luis (1200 ELO, K=40) pierde contra Ana (1000 ELO): -30 ELO -> 1170 ELO (Experto)
       expect(
-        find.text('Ranked: -7 pts → Principiante (293 pts)'),
+        find.text('ELO: -30 → Experto (1170 ELO)'),
         findsOneWidget,
       );
     },
   );
 
   testWidgets(
-    'no descuenta puntos en el resultado final cuando pierdes contra un jugador destacado por encima de ti',
+    'muestra el cambio de ELO esperado cuando el favorito gana en Ranked',
     (tester) async {
       _configurarSuperficie(tester);
-      // Luis (300 pts, Nuevo héroe) vence con 26 pts a Ana (100 pts, Principiante)
+      // Luis (1200 ELO, Experto) vence con 26 pts a Ana (1000 ELO, Nuevo héroe)
       final serviceDerrotaContraSuperior = _FakeMultiplayerService(
         room: const MultiplayerRoom(
           code: 'RANK02',
@@ -1285,7 +1285,7 @@ void main() {
               score: 26,
               finished: true,
               setupComplete: true,
-              rankedPoints: 300,
+              rankedPoints: 1200,
             ),
             MultiplayerPlayer(
               id: 'player-ana',
@@ -1295,7 +1295,7 @@ void main() {
               score: 18,
               finished: true,
               setupComplete: true,
-              rankedPoints: 100,
+              rankedPoints: 1000,
             ),
           ],
         ),
@@ -1322,14 +1322,14 @@ void main() {
 
       expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
       expect(find.text('Ganador: Luis'), findsOneWidget);
-      // Ana perdió contra un jugador destacado por encima de ella (300 > 100): 0 pts perdidos
+      // Luis (favorito 1200 vs 1000, K=40): +10 ELO -> 1210 ELO (Experto)
       expect(
-        find.text('Ranked: 0 pts → Principiante (100 pts)'),
+        find.text('ELO: +10 → Experto (1210 ELO)'),
         findsOneWidget,
       );
-      // Luis ganó contra alguien de menor rango: suma sus 26 pts normales -> 326 pts
+      // Ana (1000 vs 1200, K=40): -10 ELO -> 990 ELO (Principiante)
       expect(
-        find.text('Ranked: +26 pts → Nuevo héroe (326 pts)'),
+        find.text('ELO: -10 → Principiante (990 ELO)'),
         findsOneWidget,
       );
     },
