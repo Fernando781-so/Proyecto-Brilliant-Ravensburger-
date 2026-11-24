@@ -25,7 +25,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(AudioService.instance.reproducirMusicaMenu());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(AudioService.instance.reproducirMusicaMenu());
+    });
   }
 
   Future<void> _abrirAuth({required bool iniciarSesion}) async {

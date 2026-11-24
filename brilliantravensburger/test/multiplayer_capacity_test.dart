@@ -1089,5 +1089,56 @@ void main() {
         expect(find.byKey(const ValueKey('room-time-trial-badge')), findsNothing);
       },
     );
+
+    testWidgets(
+      'muestra los 4 tableros sin recorte en pantalla ancha de Windows dentro de la sala',
+      (tester) async {
+        tester.view.physicalSize = const Size(1280, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final service = _FakeLobbyMultiplayerService()
+          ..room = const MultiplayerRoom(
+            code: 'WIN001',
+            hostId: 'player-host',
+            capacity: 2,
+            boardId: 2,
+            targetPoints: 26,
+            status: 'waiting',
+            players: [
+              MultiplayerPlayer(
+                id: 'player-host',
+                username: 'simon',
+                ready: false,
+                connected: true,
+                score: 0,
+                finished: false,
+                setupComplete: false,
+                rankedPoints: 0,
+              ),
+            ],
+          );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'simon',
+              service: service,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        for (var boardId = 1; boardId <= 4; boardId++) {
+          final cardFinder = find.byKey(ValueKey('room-board-$boardId'));
+          expect(cardFinder, findsOneWidget);
+          final size = tester.getSize(cardFinder);
+          expect(size.height, greaterThanOrEqualTo(56));
+          expect(size.height, lessThanOrEqualTo(80));
+        }
+        expect(find.text('Tablero 2\nEn uso'), findsOneWidget);
+      },
+    );
   });
 }

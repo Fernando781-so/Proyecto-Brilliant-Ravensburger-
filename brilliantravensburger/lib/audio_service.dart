@@ -49,6 +49,7 @@ class AudioService extends ChangeNotifier {
   String? _ultimoSonidoReproducido;
   final List<String> _historialSonidos = <String>[];
   int _conteoIniciosMusica = 0;
+  bool _musicaReproduciendoEnReproductor = false;
 
   bool get musicaActiva => _musicaActiva;
   bool get sonidosActivos => _sonidosActivos;
@@ -95,6 +96,7 @@ class AudioService extends ChangeNotifier {
     _ultimoSonidoReproducido = null;
     _historialSonidos.clear();
     _conteoIniciosMusica = 0;
+    _musicaReproduciendoEnReproductor = false;
   }
 
   void alternarMusica([bool? activa]) {
@@ -103,6 +105,7 @@ class AudioService extends ChangeNotifier {
     _musicaActiva = nuevoValor;
     if (!_musicaActiva) {
       _pistaMusicaActual = null;
+      _musicaReproduciendoEnReproductor = false;
       if (!_esEntornoDePruebas) {
         unawaited(_detenerReproductorMusica());
       }
@@ -165,15 +168,21 @@ class AudioService extends ChangeNotifier {
     _pistaMusicaObjetivo = assetPath;
     if (!_musicaActiva) {
       _pistaMusicaActual = null;
+      _musicaReproduciendoEnReproductor = false;
       return;
     }
 
-    if (_pistaMusicaActual == assetPath && !forzarReinicio) {
+    if (_pistaMusicaActual == assetPath &&
+        !forzarReinicio &&
+        (_esEntornoDePruebas || _musicaReproduciendoEnReproductor)) {
       return;
     }
 
+    final yaEstabaComoActual = _pistaMusicaActual == assetPath;
     _pistaMusicaActual = assetPath;
-    _conteoIniciosMusica++;
+    if (!yaEstabaComoActual || forzarReinicio) {
+      _conteoIniciosMusica++;
+    }
     notifyListeners();
 
     if (_esEntornoDePruebas) return;
@@ -182,26 +191,36 @@ class AudioService extends ChangeNotifier {
       final player = _musicPlayer ??= AudioPlayer();
       await player.setReleaseMode(ReleaseMode.loop);
       await player.setVolume(_volumenMusica);
-      await player.stop();
+      if (player.state == PlayerState.playing ||
+          player.state == PlayerState.paused) {
+        await player.stop();
+      }
       await player.play(
         AssetSource(_rutaRelativaParaAssetSource(assetPath)),
         volume: _volumenMusica,
       );
+      _musicaReproduciendoEnReproductor = true;
     } catch (_) {
+      _musicaReproduciendoEnReproductor = false;
       final alternativa = _rutaAlternativaExtension(assetPath);
       if (alternativa != null) {
         try {
           final player = _musicPlayer ??= AudioPlayer();
+          await player.setReleaseMode(ReleaseMode.loop);
           await player.play(
             AssetSource(_rutaRelativaParaAssetSource(alternativa)),
             volume: _volumenMusica,
           );
-        } catch (_) {}
+          _musicaReproduciendoEnReproductor = true;
+        } catch (_) {
+          _musicaReproduciendoEnReproductor = false;
+        }
       }
     }
   }
 
   Future<void> _detenerReproductorMusica() async {
+    _musicaReproduciendoEnReproductor = false;
     try {
       await _musicPlayer?.stop();
     } catch (_) {}
@@ -212,6 +231,7 @@ class AudioService extends ChangeNotifier {
     if (_pistaMusicaActual == null && _pistaMusicaObjetivo == null) return;
     _pistaMusicaActual = null;
     _pistaMusicaObjetivo = null;
+    _musicaReproduciendoEnReproductor = false;
     if (!_esEntornoDePruebas) {
       await _detenerReproductorMusica();
     }
@@ -220,6 +240,12 @@ class AudioService extends ChangeNotifier {
 
   /// Reproduce un efecto de sonido corto si los sonidos están activos.
   Future<void> reproducirSonido(String assetPath) async {
+    if (!_esEntornoDePruebas &&
+        _musicaActiva &&
+        _pistaMusicaObjetivo != null &&
+        !_musicaReproduciendoEnReproductor) {
+      unawaited(reproducirMusica(_pistaMusicaObjetivo!));
+    }
     if (!_sonidosActivos) return;
     _ultimoSonidoReproducido = assetPath;
     _historialSonidos.add(assetPath);

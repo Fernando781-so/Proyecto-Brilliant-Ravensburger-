@@ -1,8 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'dart:async';
-import 'dart:convert';
 import 'app_config.dart';
 import 'audio_service.dart';
 import 'inicio_screen.dart';
@@ -29,20 +31,55 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isPasswordVisible = false;
   String? _token;
   String? _currentUser;
+  AppLifecycleListener? _lifecycleListener;
+  bool _closingSessionOnExit = false;
 
   @override
   void initState() {
     super.initState();
     _isLogin = widget.initialLogin;
-    unawaited(AudioService.instance.reproducirMusicaMenu());
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: _handleAppExitRequested,
+      onDetach: () {
+        unawaited(_cerrarSesionAlCerrarApp());
+      },
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(AudioService.instance.reproducirMusicaMenu());
+    });
     _restoreSession();
   }
 
   @override
   void dispose() {
+    _lifecycleListener?.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<AppExitResponse> _handleAppExitRequested() async {
+    await _cerrarSesionAlCerrarApp();
+    return AppExitResponse.exit;
+  }
+
+  Future<void> _cerrarSesionAlCerrarApp() async {
+    final activeToken = _token;
+    if (activeToken == null || _closingSessionOnExit) return;
+    _closingSessionOnExit = true;
+    try {
+      await http
+          .post(
+            Uri.parse('$baseUrl/logout'),
+            headers: {'Authorization': 'Bearer $activeToken'},
+          )
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // No bloquear el cierre de la ventana si el servidor no responde a tiempo.
+    }
+    try {
+      await _sessionStorage.delete(key: _savedSessionKey);
+    } catch (_) {}
   }
 
   Future<void> _restoreSession() async {
@@ -143,7 +180,9 @@ class _AuthScreenState extends State<AuthScreen> {
           setState(() {
             _token = token;
             _currentUser = username;
+            _closingSessionOnExit = false;
           });
+          unawaited(AudioService.instance.reproducirMusicaMenu());
         } else {
           setState(() => _isLogin = true);
         }
@@ -251,7 +290,9 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() {
         _token = token;
         _currentUser = username;
+        _closingSessionOnExit = false;
       });
+      unawaited(AudioService.instance.reproducirMusicaMenu());
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sesión anterior cerrada. Ya puedes continuar.'),

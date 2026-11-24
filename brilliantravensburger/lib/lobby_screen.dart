@@ -568,69 +568,89 @@ class _LobbyScreenState extends State<LobbyScreen> {
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
-        SizedBox(
-          height: 116,
-          child: GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 2.5,
-            ),
-            itemCount: 4,
-            itemBuilder: (context, index) {
-              final boardId = index + 1;
-              final isSelected = room.boardId == boardId;
-              final canSelect =
-                  service.playerId == room.hostId &&
-                  room.status == 'waiting' &&
-                  !_loading;
-              return Card(
-                margin: EdgeInsets.zero,
-                color: isSelected ? Colors.blue.shade50 : null,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isSelected ? Colors.blue : Colors.black12,
-                    width: isSelected ? 2 : 1,
-                  ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 680;
+            final crossAxisCount = isWide ? 4 : 2;
+            final rowExtent = isWide ? 66.0 : 58.0;
+            final gridHeight = isWide ? rowExtent : (rowExtent * 2) + 8;
+            return SizedBox(
+              height: gridHeight,
+              child: GridView.builder(
+                key: const ValueKey('room-boards-grid'),
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  mainAxisExtent: rowExtent,
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  key: ValueKey('room-board-$boardId'),
-                  onTap: canSelect
-                      ? () => _changeBoard(service, boardId)
-                      : null,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      children: [
-                        TableroPreview(boardId: boardId, size: 42),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            isSelected
-                                ? 'Tablero $boardId\nEn uso'
-                                : 'Tablero $boardId',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected ? Colors.blue.shade900 : null,
-                            ),
-                          ),
-                        ),
-                        if (isSelected)
-                          const Icon(Icons.check_circle, color: Colors.blue),
-                      ],
+                itemCount: 4,
+                itemBuilder: (context, index) {
+                  final boardId = index + 1;
+                  final isSelected = room.boardId == boardId;
+                  final canSelect =
+                      service.playerId == room.hostId &&
+                      room.status == 'waiting' &&
+                      !_loading;
+                  return Card(
+                    margin: EdgeInsets.zero,
+                    color: isSelected ? Colors.blue.shade50 : null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: isSelected ? Colors.blue : Colors.black12,
+                        width: isSelected ? 2 : 1,
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      key: ValueKey('room-board-$boardId'),
+                      onTap: canSelect
+                          ? () => _changeBoard(service, boardId)
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          children: [
+                            TableroPreview(boardId: boardId, size: 44),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isSelected
+                                    ? 'Tablero $boardId\nEn uso'
+                                    : 'Tablero $boardId',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? Colors.blue.shade900
+                                      : null,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.blue,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
         const SizedBox(height: 8),
         Text(
