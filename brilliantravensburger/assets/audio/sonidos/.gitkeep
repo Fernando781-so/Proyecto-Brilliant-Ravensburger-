@@ -1,8 +1,0 @@
-# Coloca aquí tus efectos de sonido (.mp3, .wav, .ogg)
-# Ejemplos de nombres configurados en lib/audio_service.dart:
-# - boton.mp3           (Clic o toque de botón)
-# - dado.mp3            (Lanzamiento de dados)
-# - colocar_numero.mp3  (Colocar un número en una casilla)
-# - explosion.mp3       (Mover o quitar un número inicial)
-# - zona_capturada.mp3  (Completar o capturar una zona de color)
-# - victoria.mp3        (Finalizar la partida / victoria)
