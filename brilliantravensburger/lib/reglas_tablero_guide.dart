@@ -1,8 +1,58 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'audio_service.dart';
 import 'brilliantravensburger.dart';
+import 'tablero_preview.dart';
 
-class ReglasTableroGuide extends StatelessWidget {
+String simboloReglaZona(Zona zone) {
+  switch (zone.region) {
+    case Region.azul:
+    case Region.blanco:
+      return '=';
+    case Region.rojo:
+    case Region.amarillo:
+      return '≠';
+    case Region.verde:
+      return '?';
+    case Region.lila:
+      return 'XO';
+    case Region.naranja:
+      if (zone.valorMinimo != null && zone.valorMaximo != null) {
+        return '${zone.valorMinimo}-${zone.valorMaximo}';
+      }
+      return 'N';
+  }
+}
+
+String reglaColorZona(Zona zone) {
+  switch (zone.region) {
+    case Region.azul:
+    case Region.blanco:
+      return 'Todos los números de esa zona deben ser iguales.';
+    case Region.rojo:
+    case Region.amarillo:
+      return 'Todos los números de esa zona deben ser diferentes.';
+    case Region.verde:
+      return 'Cualquier número (sin restricción).';
+    case Region.lila:
+      return 'Máximo 2 números diferentes en toda la zona.';
+    case Region.naranja:
+      if (zone.valorMinimo == 1 && zone.valorMaximo == 3) {
+        return 'Solo números del 1 al 3.';
+      }
+      if (zone.valorMinimo == 4 && zone.valorMaximo == 6) {
+        return 'Solo números del 4 al 6.';
+      }
+      if (zone.valorMinimo != null && zone.valorMaximo != null) {
+        return 'Solo números del ${zone.valorMinimo} al ${zone.valorMaximo}.';
+      }
+      return 'Solo números dentro del rango permitido.';
+  }
+}
+
+class ReglasTableroGuide extends StatefulWidget {
   const ReglasTableroGuide({
     super.key,
     required this.boardId,
@@ -15,12 +65,34 @@ class ReglasTableroGuide extends StatelessWidget {
   final ValueChanged<int>? onZoneSelected;
 
   @override
+  State<ReglasTableroGuide> createState() => _ReglasTableroGuideState();
+}
+
+class _ReglasTableroGuideState extends State<ReglasTableroGuide> {
+  int? _localSelectedZone;
+
+  int? get _activeSelectedZone =>
+      widget.onZoneSelected != null ? widget.selectedZone : _localSelectedZone;
+
+  void _handleZoneTap(int index) {
+    unawaited(AudioService.instance.reproducirSelect());
+    if (widget.onZoneSelected != null) {
+      widget.onZoneSelected!(index);
+    } else {
+      setState(() {
+        _localSelectedZone = _localSelectedZone == index ? null : index;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (boardId < 1 || boardId > 4) {
+    if (widget.boardId < 1 || widget.boardId > 4) {
       return const Text('No hay instrucciones disponibles para este tablero.');
     }
 
-    final board = crearTablero(boardId);
+    final board = crearTablero(widget.boardId);
+    final activeIndex = _activeSelectedZone;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(8),
@@ -41,14 +113,79 @@ class ReglasTableroGuide extends StatelessWidget {
               _ZonePointsTile(
                 index: index,
                 zone: board.zonas[index],
-                selected: selectedZone == index,
-                onSelected: onZoneSelected == null
-                    ? null
-                    : () => onZoneSelected!(index),
+                selected: activeIndex == index,
+                onSelected: () => _handleZoneTap(index),
               ),
+              if (activeIndex == index)
+                _ZoneRulePreview(
+                  boardId: widget.boardId,
+                  zoneIndex: index,
+                  zone: board.zonas[index],
+                ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ZoneRulePreview extends StatelessWidget {
+  const _ZoneRulePreview({
+    required this.boardId,
+    required this.zoneIndex,
+    required this.zone,
+  });
+
+  final int boardId;
+  final int zoneIndex;
+  final Zona zone;
+
+  @override
+  Widget build(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      key: ValueKey('zone-rule-preview-${zoneIndex + 1}'),
+      margin: const EdgeInsets.fromLTRB(8, 4, 8, 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: esOscuro ? Colors.grey.shade900 : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: esOscuro ? Colors.deepPurple.shade300 : Colors.blue.shade200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          TableroPreview(
+            key: ValueKey('zone-board-preview-${zoneIndex + 1}'),
+            boardId: boardId,
+            size: 96,
+            highlightedZoneIndex: zoneIndex,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Regla (${_nombreZona(zone)})',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reglaColorZona(zone),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -70,11 +207,15 @@ class _ZonePointsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final points = zone.bolsaPuntos.join(' → ');
+    final symbol = simboloReglaZona(zone);
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       key: ValueKey('board-zone-${index + 1}'),
       dense: true,
       selected: selected,
-      selectedTileColor: Colors.blue.shade50,
+      selectedTileColor: esOscuro
+          ? Colors.deepPurple.withValues(alpha: 0.25)
+          : Colors.blue.shade50,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
       onTap: onSelected,
       leading: Material(
@@ -96,8 +237,12 @@ class _ZonePointsTile extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              '${index + 1}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              symbol,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: symbol.length > 2 ? 12 : 15,
+                color: Colors.black87,
+              ),
             ),
           ),
         ),

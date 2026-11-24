@@ -2128,4 +2128,91 @@ void main() {
       },
     );
   });
+
+  testWidgets(
+    'muestra símbolos de reglas en círculos de color, preview de zona al tocarla y restaura música al retroceder',
+    (tester) async {
+      _configurarSuperficie(tester);
+      final audio = AudioService.instance;
+      audio.reiniciarEstadoParaPruebas();
+
+      final board4 = crearTablero(4);
+      final iniciales4 = obtenerPosicionesInicialesTablero(4);
+      for (var i = 0; i < iniciales4.length; i++) {
+        board4.celdas[iniciales4[i][0]][iniciales4[i][1]] = i + 1;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          JuegoScreen(tablero: board4, tableroSeleccionado: 4),
+                    ),
+                  );
+                },
+                child: const Text('Abrir partida'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Abrir partida'));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 10 && find.text('Sin movimientos').evaluate().isNotEmpty; i++) {
+        await tester.tap(find.text('Entendido'));
+        await tester.pumpAndSettle();
+      }
+      expect(audio.pistaMusicaActual, AudioAssets.musicaPartidaCasual);
+
+      // Abre instrucciones y verifica símbolos (=, ≠, ?, XO, 1-3, 4-6)
+      await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+      await tester.pumpAndSettle();
+
+      await tester.drag(
+        find.byKey(const ValueKey('instructions-drawer-list')),
+        const Offset(0, -400),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('='), findsWidgets);
+      expect(find.text('≠'), findsWidgets);
+      expect(find.text('?'), findsWidgets);
+      expect(find.text('XO'), findsWidgets);
+      expect(find.text('4-6'), findsOneWidget);
+      expect(find.text('1-3'), findsOneWidget);
+
+      // Al tocar la regla de la zona naranja 1-3 muestra el preview del tablero marcado y su regla
+      final lowerOrangeIndex = board4.zonas.indexWhere(
+        (z) => z.region == Region.naranja && z.valorMinimo == 1,
+      );
+      final lowerOrangeTile = find.byKey(
+        ValueKey('board-zone-${lowerOrangeIndex + 1}'),
+      );
+      await tester.ensureVisible(lowerOrangeTile);
+      await tester.tap(lowerOrangeTile);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(ValueKey('zone-board-preview-${lowerOrangeIndex + 1}')),
+        findsOneWidget,
+      );
+      expect(find.text('Solo números del 1 al 3.'), findsOneWidget);
+
+      // Cierra el drawer y presiona la flecha de retroceder al menú: debe volver a Trophy Gallery.mp3
+      await tester.tap(find.byKey(const ValueKey('drawer-tab-instructions')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Abrir partida'), findsOneWidget);
+      expect(audio.pistaMusicaActual, AudioAssets.musicaMenu);
+    },
+  );
 }

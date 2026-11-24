@@ -124,6 +124,7 @@ class _InicioScreenState extends State<InicioScreen> {
     service?.removeListener(_onMultiplayerUpdate);
     if (!_navegandoAlJuego) {
       service?.dispose();
+      unawaited(AudioService.instance.reproducirMusicaMenu());
     }
     super.dispose();
   }

@@ -3,10 +3,16 @@ import 'package:flutter/material.dart';
 import 'brilliantravensburger.dart';
 
 class TableroPreview extends StatelessWidget {
-  const TableroPreview({super.key, required this.boardId, this.size = 64});
+  const TableroPreview({
+    super.key,
+    required this.boardId,
+    this.size = 64,
+    this.highlightedZoneIndex,
+  });
 
   final int boardId;
   final double size;
+  final int? highlightedZoneIndex;
 
   Color _colorForRegion(Region region) {
     switch (region) {
@@ -46,23 +52,37 @@ class TableroPreview extends StatelessWidget {
         itemBuilder: (context, index) {
           final row = index ~/ 7;
           final column = index % 7;
-          final region = board.zonas
-              .firstWhere(
-                (zone) => zone.posiciones.any(
-                  (position) => position[0] == row && position[1] == column,
-                ),
-              )
-              .region;
+          final zoneIndex = board.zonas.indexWhere(
+            (zone) => zone.posiciones.any(
+              (position) => position[0] == row && position[1] == column,
+            ),
+          );
+          final region = zoneIndex >= 0
+              ? board.zonas[zoneIndex].region
+              : Region.verde;
           final isStartingPosition = startingPositions.any(
             (position) => position[0] == row && position[1] == column,
           );
+          final hasHighlight = highlightedZoneIndex != null;
+          final isHighlighted = hasHighlight && zoneIndex == highlightedZoneIndex;
+          final baseColor = _colorForRegion(region);
 
           return DecoratedBox(
             decoration: BoxDecoration(
-              color: _colorForRegion(region),
+              color: hasHighlight && !isHighlighted
+                  ? baseColor.withValues(alpha: 0.3)
+                  : baseColor,
               border: Border.all(
-                color: isStartingPosition ? Colors.black87 : Colors.black26,
-                width: isStartingPosition ? 1.5 : 0.5,
+                color: isHighlighted
+                    ? Colors.deepPurple
+                    : isStartingPosition
+                    ? Colors.black87
+                    : Colors.black26,
+                width: isHighlighted
+                    ? 2.2
+                    : isStartingPosition
+                    ? 1.5
+                    : 0.5,
               ),
               borderRadius: BorderRadius.circular(2),
             ),

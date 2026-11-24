@@ -241,6 +241,7 @@ class _JuegoScreenState extends State<JuegoScreen>
   @override
   void dispose() {
     _detenerTemporizadorTurno();
+    unawaited(AudioService.instance.reproducirMusicaMenu());
     final service = widget.multiplayer;
     if (service != null) {
       service.removeListener(_onMultiplayerUpdate);
@@ -1336,7 +1337,10 @@ class _JuegoScreenState extends State<JuegoScreen>
     return PopScope<Object?>(
       canPop: !_requiereConfirmarSalida && _openSidePanel == null,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
+        if (didPop) {
+          unawaited(AudioService.instance.reproducirBack());
+          unawaited(AudioService.instance.reproducirMusicaMenu());
+        } else {
           if (_openSidePanel != null) {
             _closeSidePanel();
           } else if (_requiereConfirmarSalida) {
