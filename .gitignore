@@ -1,0 +1,12 @@
+# Archivos de compilación y caché que nunca deben subirse a Git
+build/
+**/build/
+.dart_tool/
+**/.dart_tool/
+*.dill
+*.apk
+*.aab
+*.ipa
+*.sqlite
+*.db
+node_modules/
