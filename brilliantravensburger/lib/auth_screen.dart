@@ -10,6 +10,7 @@ import 'app_config.dart';
 import 'audio_service.dart';
 import 'inicio_screen.dart';
 import 'lobby_screen.dart';
+import 'modos_juego_info.dart';
 import 'session_lifecycle_service.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -525,6 +526,16 @@ class _AuthScreenState extends State<AuthScreen> {
                   },
                   icon: const Icon(Icons.login),
                   label: const Text('Unirse a sala'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('game-modes-info-button'),
+                  onPressed: () => mostrarReglasModosJuego(context),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('Reglas y modos de juego'),
                 ),
               ),
               const SizedBox(height: 20),

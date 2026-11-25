@@ -5,6 +5,7 @@ import 'app_background.dart';
 import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'inicio_screen.dart';
+import 'modos_juego_info.dart';
 import 'multiplayer_service.dart';
 import 'tablero_preview.dart';
 
@@ -237,6 +238,33 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildRoomOptions() {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final bordeInactivo = esOscuro ? Colors.white24 : Colors.black12;
+    final fondoRankedActivo = esOscuro
+        ? const Color(0xFF4A3210)
+        : Colors.amber.shade50;
+    final bordeRankedActivo = esOscuro
+        ? Colors.amber.shade300
+        : Colors.amber.shade700;
+    final iconoRankedActivo = esOscuro
+        ? Colors.amber.shade300
+        : Colors.amber.shade800;
+    final fondoContraRelojActivo = esOscuro
+        ? const Color(0xFF4A2511)
+        : Colors.deepOrange.shade50;
+    final bordeContraRelojActivo = esOscuro
+        ? Colors.deepOrange.shade300
+        : Colors.deepOrange.shade600;
+    final iconoContraRelojActivo = esOscuro
+        ? Colors.deepOrange.shade300
+        : Colors.deepOrange.shade700;
+    final fondoTableroSeleccionado = esOscuro
+        ? const Color(0xFF16324F)
+        : Colors.blue.shade50;
+    final textoTableroSeleccionado = esOscuro
+        ? Colors.lightBlue.shade100
+        : Colors.blue.shade900;
+
     return ListView(
       children: [
         const Icon(Icons.groups_outlined, size: 64, color: Colors.blue),
@@ -284,14 +312,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: _isRanked ? Colors.amber.shade700 : Colors.black12,
+                color: _isRanked ? bordeRankedActivo : bordeInactivo,
                 width: _isRanked ? 2 : 1,
               ),
             ),
-            tileColor: _isRanked ? Colors.amber.shade50 : null,
+            tileColor: _isRanked ? fondoRankedActivo : null,
             secondary: Icon(
               _isRanked ? Icons.emoji_events : Icons.sports_esports_outlined,
-              color: _isRanked ? Colors.amber.shade800 : Colors.blueGrey,
+              color: _isRanked ? iconoRankedActivo : Colors.blueGrey,
             ),
             title: Text(
               _isRanked ? 'Modo Clasificatoria (Ranked)' : 'Modo Casual',
@@ -299,7 +327,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
             subtitle: Text(
               _isRanked
-                  ? 'Contra rival superior: 0 pts perdidos al caer y +20% de tus puntos al ganar.'
+                  ? 'Compite por rangos: ganas o pierdes puntos según tu posición y el nivel de tus rivales.'
                   : 'Partida amistosa sin cambios en puntos de clasificatoria.',
               style: const TextStyle(fontSize: 12),
             ),
@@ -319,14 +347,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: _timeTrial ? Colors.deepOrange.shade600 : Colors.black12,
+                color: _timeTrial ? bordeContraRelojActivo : bordeInactivo,
                 width: _timeTrial ? 2 : 1,
               ),
             ),
-            tileColor: _timeTrial ? Colors.deepOrange.shade50 : null,
+            tileColor: _timeTrial ? fondoContraRelojActivo : null,
             secondary: Icon(
               _timeTrial ? Icons.timer : Icons.timer_off_outlined,
-              color: _timeTrial ? Colors.deepOrange.shade700 : Colors.blueGrey,
+              color: _timeTrial ? iconoContraRelojActivo : Colors.blueGrey,
             ),
             title: const Text(
               'Contra reloj',
@@ -346,7 +374,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     setState(() => _timeTrial = value);
                   },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const ValueKey('lobby-modes-info-button'),
+              onPressed: () => mostrarReglasModosJuego(context),
+              icon: const Icon(Icons.info_outline, size: 18),
+              label: const Text('Ver reglas y modos de juego'),
+            ),
+          ),
+          const SizedBox(height: 6),
           const Text(
             'Selecciona el tablero',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -369,11 +407,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         return Card(
                           key: ValueKey('creation-board-card-$boardId'),
                           margin: const EdgeInsets.only(right: 12, bottom: 8),
-                          color: isSelected ? Colors.blue.shade50 : null,
+                          color: isSelected ? fondoTableroSeleccionado : null,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: isSelected ? Colors.blue : Colors.black12,
+                              color: isSelected ? Colors.blue : bordeInactivo,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -406,7 +444,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                               ? FontWeight.bold
                                               : FontWeight.normal,
                                           color: isSelected
-                                              ? Colors.blue.shade900
+                                              ? textoTableroSeleccionado
                                               : null,
                                         ),
                                       ),
@@ -596,13 +634,21 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       service.playerId == room.hostId &&
                       room.status == 'waiting' &&
                       !_loading;
+                  final esOscuro =
+                      Theme.of(context).brightness == Brightness.dark;
                   return Card(
                     margin: EdgeInsets.zero,
-                    color: isSelected ? Colors.blue.shade50 : null,
+                    color: isSelected
+                        ? (esOscuro
+                              ? const Color(0xFF16324F)
+                              : Colors.blue.shade50)
+                        : null,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: isSelected ? Colors.blue : Colors.black12,
+                        color: isSelected
+                            ? Colors.blue
+                            : (esOscuro ? Colors.white24 : Colors.black12),
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -634,7 +680,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                   color: isSelected
-                                      ? Colors.blue.shade900
+                                      ? (esOscuro
+                                            ? Colors.lightBlue.shade100
+                                            : Colors.blue.shade900)
                                       : null,
                                 ),
                               ),
@@ -680,7 +728,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          '${player.rankedLevel} (${player.rankedPoints} ELO)',
+                          '${player.rankedLevel} (${player.rankedPoints} pts)',
                           key: ValueKey('player-rank-${player.id}'),
                           style: TextStyle(
                             fontWeight: FontWeight.w600,

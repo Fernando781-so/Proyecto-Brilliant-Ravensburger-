@@ -630,7 +630,7 @@ class _JuegoScreenState extends State<JuegoScreen>
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        'ELO: $deltaLabel → ${obtenerNivelRanked(totalElo)} ($totalElo ELO)',
+                        'Clasificatoria: $deltaLabel pts → ${obtenerNivelRanked(totalElo)} ($totalElo pts)',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

@@ -779,11 +779,11 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
-        expect(find.text('Principiante (900 ELO)'), findsOneWidget);
-        expect(find.text('Nuevo héroe (1000 ELO)'), findsOneWidget);
-        expect(find.text('Experto (1150 ELO)'), findsOneWidget);
-        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
-        expect(find.text('EL Brilliant (1500 ELO)'), findsOneWidget);
+        expect(find.text('Principiante (900 pts)'), findsOneWidget);
+        expect(find.text('Nuevo héroe (1000 pts)'), findsOneWidget);
+        expect(find.text('Experto (1150 pts)'), findsOneWidget);
+        expect(find.text('Megamente (1300 pts)'), findsOneWidget);
+        expect(find.text('EL Brilliant (1500 pts)'), findsOneWidget);
       },
     );
 
@@ -807,16 +807,18 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('ranked-mode-switch')));
         await tester.pumpAndSettle();
 
-        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.drag(find.byType(ListView).first, const Offset(0, -450));
         await tester.pumpAndSettle();
         final createButton = find.byKey(const ValueKey('create-room-button'));
+        await tester.ensureVisible(createButton);
+        await tester.pumpAndSettle();
         await tester.tap(createButton);
         await tester.pumpAndSettle();
 
         expect(fakeService.createCalls, 1);
         expect(fakeService.lastCreatedRanked, isTrue);
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(find.text('Nuevo héroe (1000 ELO)'), findsOneWidget);
+        expect(find.text('Nuevo héroe (1000 pts)'), findsOneWidget);
 
         await tester.tap(find.text('Salir de la sala'));
         await tester.pumpAndSettle();
@@ -824,9 +826,11 @@ void main() {
         expect(fakeService.leaveCalls, 1);
         expect(find.text('ROOM01'), findsNothing);
 
-        await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+        await tester.drag(find.byType(ListView).first, const Offset(0, -450));
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('create-room-button')));
+        await tester.ensureVisible(createButton);
+        await tester.pumpAndSettle();
+        await tester.tap(createButton);
         await tester.pumpAndSettle();
 
         expect(fakeService.createCalls, 2);
@@ -986,7 +990,7 @@ void main() {
 
         expect(secondService.createCalls, 1);
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(find.text('Experto (1150 ELO)'), findsOneWidget);
+        expect(find.text('Experto (1150 pts)'), findsOneWidget);
       },
     );
 
@@ -1052,7 +1056,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('ROOM01'), findsOneWidget);
-        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
+        expect(find.text('Megamente (1300 pts)'), findsOneWidget);
 
         // Sale de la sala en espera usando navegación hacia atrás
         await tester.binding.handlePopRoute();
@@ -1072,7 +1076,7 @@ void main() {
 
         expect(hostService.joinCalls, 1);
         expect(find.text('AB12CD'), findsOneWidget);
-        expect(find.text('Megamente (1300 ELO)'), findsOneWidget);
+        expect(find.text('Megamente (1300 pts)'), findsOneWidget);
       },
     );
 
@@ -1168,6 +1172,51 @@ void main() {
           expect(size.height, lessThanOrEqualTo(80));
         }
         expect(find.text('Tablero 2\nEn uso'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'muestra reglas e información de modos de juego y adapta colores activos en modo oscuro',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final service = _FakeLobbyMultiplayerService();
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark(),
+            home: LobbyScreen(
+              token: 'token',
+              username: 'Anfitrión',
+              service: service,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byKey(const ValueKey('ranked-mode-switch')));
+        await tester.tap(find.byKey(const ValueKey('time-trial-mode-switch')));
+        await tester.pumpAndSettle();
+
+        final rankedTile = tester.widget<SwitchListTile>(
+          find.byKey(const ValueKey('ranked-mode-switch')),
+        );
+        final timeTrialTile = tester.widget<SwitchListTile>(
+          find.byKey(const ValueKey('time-trial-mode-switch')),
+        );
+        // En modo oscuro los cuadros activos usan tonos oscuros con alto contraste (no shade50 pálido)
+        expect(rankedTile.tileColor, const Color(0xFF4A3210));
+        expect(timeTrialTile.tileColor, const Color(0xFF4A2511));
+
+        await tester.tap(find.byKey(const ValueKey('lobby-modes-info-button')));
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('game-modes-info-dialog')), findsOneWidget);
+        expect(find.text('Reglas y modos de juego'), findsOneWidget);
+        expect(find.text('Reglas básicas'), findsOneWidget);
+        expect(find.text('Modo Contra reloj'), findsOneWidget);
       },
     );
   });

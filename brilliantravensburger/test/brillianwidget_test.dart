@@ -1251,12 +1251,12 @@ void main() {
       expect(find.text('Ganador: Ana'), findsOneWidget);
       // Ana (1000 ELO, K=40) vence a Luis (1200 ELO): +30 ELO -> 1030 ELO (Nuevo héroe)
       expect(
-        find.text('ELO: +30 → Nuevo héroe (1030 ELO)'),
+        find.text('Clasificatoria: +30 pts → Nuevo héroe (1030 pts)'),
         findsOneWidget,
       );
-      // Luis (1200 ELO, K=40) pierde contra Ana (1000 ELO): -30 ELO -> 1170 ELO (Experto)
+      // Luis (1200, K=40) pierde contra Ana (1000): -30 pts -> 1170 pts (Experto)
       expect(
-        find.text('ELO: -30 → Experto (1170 ELO)'),
+        find.text('Clasificatoria: -30 pts → Experto (1170 pts)'),
         findsOneWidget,
       );
     },
@@ -1324,12 +1324,12 @@ void main() {
       expect(find.text('Ganador: Luis'), findsOneWidget);
       // Luis (favorito 1200 vs 1000, K=40): +10 ELO -> 1210 ELO (Experto)
       expect(
-        find.text('ELO: +10 → Experto (1210 ELO)'),
+        find.text('Clasificatoria: +10 pts → Experto (1210 pts)'),
         findsOneWidget,
       );
-      // Ana (1000 vs 1200, K=40): -10 ELO -> 990 ELO (Principiante)
+      // Ana (1000 vs 1200, K=40): -10 pts -> 990 pts (Principiante)
       expect(
-        find.text('ELO: -10 → Principiante (990 ELO)'),
+        find.text('Clasificatoria: -10 pts → Principiante (990 pts)'),
         findsOneWidget,
       );
     },
