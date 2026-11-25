@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'app_background.dart';
 import 'app_config.dart';
 import 'audio_service.dart';
 import 'inicio_screen.dart';
@@ -444,8 +445,9 @@ class _AuthScreenState extends State<AuthScreen> {
           title: const Text('Panel de Jugador'),
           actions: const [AudioSettingsButton()],
         ),
-        body: Center(
-          child: Column(
+        body: AppBackground(
+          child: Center(
+            child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
@@ -579,6 +581,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ],
           ),
+          ),
         ),
       );
     }
@@ -590,7 +593,8 @@ class _AuthScreenState extends State<AuthScreen> {
         centerTitle: true,
         actions: const [AudioSettingsButton()],
       ),
-      body: SingleChildScrollView(
+      body: AppBackground(
+        child: SingleChildScrollView(
         // <--- Agregado para evitar desbordamiento
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -673,6 +677,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

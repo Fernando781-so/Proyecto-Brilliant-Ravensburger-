@@ -19,6 +19,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('BRILLIANT'), findsOneWidget);
+    expect(find.byKey(const ValueKey('welcome-background-image')), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-background-image')), findsNothing);
     expect(AudioService.instance.pistaMusicaActual, isNull);
     expect(find.byKey(const ValueKey('welcome-login-button')), findsOneWidget);
     expect(
@@ -31,6 +33,7 @@ void main() {
 
     expect(find.text('Iniciar Sesión'), findsOneWidget);
     expect(find.text('INGRESAR'), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-background-image')), findsOneWidget);
     expect(AudioService.instance.pistaMusicaActual, isNull);
   });
 

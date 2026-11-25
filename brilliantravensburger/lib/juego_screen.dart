@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'app_background.dart';
 import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'multiplayer_service.dart';
@@ -1424,10 +1425,11 @@ class _JuegoScreenState extends State<JuegoScreen>
           const AudioSettingsButton(),
         ],
       ),
-      body: SafeArea(
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
+      body: AppBackground(
+        child: SafeArea(
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
             Column(
               children: [
                 if (esperandoConexion)
@@ -1824,6 +1826,7 @@ class _JuegoScreenState extends State<JuegoScreen>
               ),
             ),
           ],
+        ),
         ),
       ),
     );

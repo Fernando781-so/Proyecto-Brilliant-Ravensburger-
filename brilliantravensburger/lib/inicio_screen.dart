@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'app_background.dart';
 import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'juego_screen.dart';
@@ -564,8 +565,9 @@ class _InicioScreenState extends State<InicioScreen> {
           const AudioSettingsButton(),
         ],
       ),
-      body: SafeArea(
-        child: _tableroSeleccionado == null
+      body: AppBackground(
+        child: SafeArea(
+          child: _tableroSeleccionado == null
             ? _buildSelectorTablero()
             : Column(
                 children: [
@@ -825,6 +827,7 @@ class _InicioScreenState extends State<InicioScreen> {
                   ),
                 ],
               ),
+        ),
       ),
     );
   }

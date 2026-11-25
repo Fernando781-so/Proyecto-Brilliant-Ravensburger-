@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'app_background.dart';
 import 'audio_service.dart';
 import 'brilliantravensburger.dart';
 import 'inicio_screen.dart';
@@ -221,12 +222,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
           centerTitle: true,
           actions: const [AudioSettingsButton()],
         ),
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: room == null
-                ? _buildRoomOptions()
-                : _buildRoom(room, service!),
+        body: AppBackground(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: room == null
+                  ? _buildRoomOptions()
+                  : _buildRoom(room, service!),
+            ),
           ),
         ),
       ),
