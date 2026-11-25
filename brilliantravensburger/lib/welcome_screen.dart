@@ -26,7 +26,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(AudioService.instance.reproducirMusicaMenu());
+      unawaited(AudioService.instance.detenerMusica());
     });
   }
 
@@ -38,7 +38,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       ),
     );
     if (mounted) {
-      unawaited(AudioService.instance.reproducirMusicaMenu());
+      unawaited(AudioService.instance.detenerMusica());
     }
   }
 

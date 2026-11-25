@@ -9,6 +9,7 @@ import 'app_config.dart';
 import 'audio_service.dart';
 import 'inicio_screen.dart';
 import 'lobby_screen.dart';
+import 'session_lifecycle_service.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, this.initialLogin = true});
@@ -45,7 +46,9 @@ class _AuthScreenState extends State<AuthScreen> {
       },
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(AudioService.instance.reproducirMusicaMenu());
+      if (_token == null) {
+        unawaited(AudioService.instance.detenerMusica());
+      }
     });
     _restoreSession();
   }
@@ -67,13 +70,15 @@ class _AuthScreenState extends State<AuthScreen> {
     final activeToken = _token;
     if (activeToken == null || _closingSessionOnExit) return;
     _closingSessionOnExit = true;
+    unawaited(AudioService.instance.detenerMusica());
+    unawaited(SessionLifecycleService.instance.limpiarSesionActiva());
     try {
       await http
           .post(
             Uri.parse('$baseUrl/logout'),
             headers: {'Authorization': 'Bearer $activeToken'},
           )
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
     } catch (_) {
       // No bloquear el cierre de la ventana si el servidor no responde a tiempo.
     }
@@ -82,8 +87,46 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (_) {}
   }
 
+  void _activarSesionLocal({required String token, required String username}) {
+    setState(() {
+      _token = token;
+      _currentUser = username;
+      _closingSessionOnExit = false;
+    });
+    unawaited(
+      SessionLifecycleService.instance.registrarSesionActiva(
+        token: token,
+        logoutUrl: '$baseUrl/logout',
+      ),
+    );
+    unawaited(AudioService.instance.reproducirMusicaMenu());
+  }
+
   Future<void> _restoreSession() async {
     try {
+      final pendingLogout = await SessionLifecycleService.instance
+          .consumirCierrePendiente();
+      if (pendingLogout.closedFromRecents) {
+        if (pendingLogout.pendingToken != null &&
+            pendingLogout.pendingToken!.isNotEmpty) {
+          try {
+            await http
+                .post(
+                  Uri.parse('$baseUrl/logout'),
+                  headers: {
+                    'Authorization': 'Bearer ${pendingLogout.pendingToken}',
+                  },
+                )
+                .timeout(const Duration(seconds: 4));
+          } catch (_) {}
+        }
+        try {
+          await _sessionStorage.delete(key: _savedSessionKey);
+        } catch (_) {}
+        unawaited(AudioService.instance.detenerMusica());
+        return;
+      }
+
       final savedSession = await _sessionStorage.read(key: _savedSessionKey);
       if (savedSession == null) return;
 
@@ -108,6 +151,8 @@ class _AuthScreenState extends State<AuthScreen> {
           savedUsername = data['username'] ?? savedUsername;
         } else if (response.statusCode == 401 || response.statusCode == 403) {
           await _sessionStorage.delete(key: _savedSessionKey);
+          unawaited(SessionLifecycleService.instance.limpiarSesionActiva());
+          unawaited(AudioService.instance.detenerMusica());
           if (mounted) {
             _mostrarError('La sesión ya no está activa. Inicia sesión.');
           }
@@ -122,10 +167,7 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (mounted) {
-        setState(() {
-          _token = savedToken;
-          _currentUser = savedUsername;
-        });
+        _activarSesionLocal(token: savedToken, username: savedUsername);
       }
     } catch (error) {
       if (mounted) _mostrarError('No se pudo restaurar la sesión guardada.');
@@ -166,10 +208,7 @@ class _AuthScreenState extends State<AuthScreen> {
             );
           } catch (error) {
             if (!mounted) return;
-            setState(() {
-              _token = token;
-              _currentUser = username;
-            });
+            _activarSesionLocal(token: token, username: username);
             _mostrarError(
               'No se pudo guardar la sesión en este dispositivo. '
               'Cierra sesión antes de salir.',
@@ -177,12 +216,7 @@ class _AuthScreenState extends State<AuthScreen> {
             return;
           }
           if (!mounted) return;
-          setState(() {
-            _token = token;
-            _currentUser = username;
-            _closingSessionOnExit = false;
-          });
-          unawaited(AudioService.instance.reproducirMusicaMenu());
+          _activarSesionLocal(token: token, username: username);
         } else {
           setState(() => _isLogin = true);
         }
@@ -276,10 +310,7 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       } catch (error) {
         if (!mounted) return;
-        setState(() {
-          _token = token;
-          _currentUser = username;
-        });
+        _activarSesionLocal(token: token, username: username);
         _mostrarError(
           'Sesión recuperada, pero no se pudo guardar en este dispositivo.',
         );
@@ -287,12 +318,7 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (!mounted) return;
-      setState(() {
-        _token = token;
-        _currentUser = username;
-        _closingSessionOnExit = false;
-      });
-      unawaited(AudioService.instance.reproducirMusicaMenu());
+      _activarSesionLocal(token: token, username: username);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sesión anterior cerrada. Ya puedes continuar.'),
@@ -328,6 +354,8 @@ class _AuthScreenState extends State<AuthScreen> {
           _passwordController.clear();
           _isPasswordVisible = false;
         });
+        unawaited(AudioService.instance.detenerMusica());
+        unawaited(SessionLifecycleService.instance.limpiarSesionActiva());
         try {
           await _sessionStorage.delete(key: _savedSessionKey);
         } catch (error) {
@@ -381,6 +409,8 @@ class _AuthScreenState extends State<AuthScreen> {
           _passwordController.clear();
           _isPasswordVisible = false;
         });
+        unawaited(AudioService.instance.detenerMusica());
+        unawaited(SessionLifecycleService.instance.limpiarSesionActiva());
         try {
           await _sessionStorage.delete(key: _savedSessionKey);
         } catch (error) {

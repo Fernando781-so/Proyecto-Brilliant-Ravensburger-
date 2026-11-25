@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:brilliantravensburger/audio_service.dart';
 import 'package:brilliantravensburger/lobby_screen.dart';
 import 'package:brilliantravensburger/main.dart' as app;
 import 'package:brilliantravensburger/theme_service.dart';
@@ -8,6 +9,7 @@ import 'package:brilliantravensburger/theme_service.dart';
 void main() {
   setUp(() {
     ThemeService.instance.reiniciarEstadoParaPruebas();
+    AudioService.instance.reiniciarEstadoParaPruebas();
   });
 
   testWidgets('main opens the illustrative welcome screen before sign-in', (
@@ -17,6 +19,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('BRILLIANT'), findsOneWidget);
+    expect(AudioService.instance.pistaMusicaActual, isNull);
     expect(find.byKey(const ValueKey('welcome-login-button')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('welcome-register-button')),
@@ -28,6 +31,7 @@ void main() {
 
     expect(find.text('Iniciar Sesión'), findsOneWidget);
     expect(find.text('INGRESAR'), findsOneWidget);
+    expect(AudioService.instance.pistaMusicaActual, isNull);
   });
 
   testWidgets('authentication screen switches to registration mode', (
