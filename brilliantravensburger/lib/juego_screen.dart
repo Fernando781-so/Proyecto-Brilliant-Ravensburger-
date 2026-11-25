@@ -1564,120 +1564,128 @@ class _JuegoScreenState extends State<JuegoScreen>
                   ),
                 ),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: AspectRatio(
-                      aspectRatio: 1.0,
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 7,
-                              crossAxisSpacing: 4,
-                              mainAxisSpacing: 4,
-                            ),
-                        itemCount: 49,
-                        itemBuilder: (context, index) {
-                          int fila = index ~/ 7;
-                          int columna = index % 7;
-                          int valor = widget.tablero.celdas[fila][columna];
-                          Region region = _obtenerRegionCasilla(fila, columna);
-                          final zoneIndex = widget.tablero.zonas.indexWhere(
-                            (zone) => zone.posiciones.any(
-                              (position) =>
-                                  position[0] == fila && position[1] == columna,
-                            ),
-                          );
-                          final isHighlightedZone =
-                              zoneIndex >= 0 && zoneIndex == _zonaResaltada;
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final boardSide = max(
+                        180.0,
+                        min(constraints.maxWidth - 32.0, constraints.maxHeight - 8.0),
+                      );
+                      final cellFontSize = (boardSide / 7 * 0.42).clamp(13.0, 24.0);
+                      return Center(
+                        child: SizedBox.square(
+                          dimension: boardSide,
+                          child: GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 7,
+                                  crossAxisSpacing: 4,
+                                  mainAxisSpacing: 4,
+                                ),
+                            itemCount: 49,
+                            itemBuilder: (context, index) {
+                              int fila = index ~/ 7;
+                              int columna = index % 7;
+                              int valor = widget.tablero.celdas[fila][columna];
+                              Region region = _obtenerRegionCasilla(fila, columna);
+                              final zoneIndex = widget.tablero.zonas.indexWhere(
+                                (zone) => zone.posiciones.any(
+                                  (position) =>
+                                      position[0] == fila && position[1] == columna,
+                                ),
+                              );
+                              final isHighlightedZone =
+                                  zoneIndex >= 0 && zoneIndex == _zonaResaltada;
 
-                          bool esValida = posicionesValidas.any(
-                            (p) => p[0] == fila && p[1] == columna,
-                          );
+                              bool esValida = posicionesValidas.any(
+                                (p) => p[0] == fila && p[1] == columna,
+                              );
 
-                          return Tooltip(
-                            key: ValueKey('casilla-juego-$fila-$columna'),
-                            message: _mensajeCasilla(fila, columna, esValida),
-                            preferBelow: false,
-                            waitDuration: const Duration(milliseconds: 350),
-                            child: MouseRegion(
-                              cursor: esValida
-                                  ? SystemMouseCursors.click
-                                  : SystemMouseCursors.basic,
-                              child: GestureDetector(
-                                onTap: () => _alTocarCasilla(fila, columna),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 250),
-                                  decoration: BoxDecoration(
-                                    color: esValida
-                                        ? Colors.amber.shade300
-                                        : isHighlightedZone
-                                        ? Color.lerp(
-                                            _colorParaRegion(region),
-                                            Colors.lightBlueAccent,
-                                            0.55,
-                                          )
-                                        : _colorParaRegion(region),
-                                    border: Border.all(
-                                      color: esValida
-                                          ? Colors.amber.shade900
-                                          : isHighlightedZone
-                                          ? Colors.deepPurple
-                                          : Colors.black26,
-                                      width: esValida
-                                          ? 3.5
-                                          : isHighlightedZone
-                                          ? 4
-                                          : 1.0,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                    boxShadow: esValida
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.amber.withValues(
-                                                alpha: 0.6,
+                              return Tooltip(
+                                key: ValueKey('casilla-juego-$fila-$columna'),
+                                message: _mensajeCasilla(fila, columna, esValida),
+                                preferBelow: false,
+                                waitDuration: const Duration(milliseconds: 350),
+                                child: MouseRegion(
+                                  cursor: esValida
+                                      ? SystemMouseCursors.click
+                                      : SystemMouseCursors.basic,
+                                  child: GestureDetector(
+                                    onTap: () => _alTocarCasilla(fila, columna),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 250),
+                                      decoration: BoxDecoration(
+                                        color: esValida
+                                            ? Colors.amber.shade300
+                                            : isHighlightedZone
+                                            ? Color.lerp(
+                                                _colorParaRegion(region),
+                                                Colors.lightBlueAccent,
+                                                0.55,
+                                              )
+                                            : _colorParaRegion(region),
+                                        border: Border.all(
+                                          color: esValida
+                                              ? Colors.amber.shade900
+                                              : isHighlightedZone
+                                              ? Colors.deepPurple
+                                              : Colors.black26,
+                                          width: esValida
+                                              ? 3.5
+                                              : isHighlightedZone
+                                              ? 4
+                                              : 1.0,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                        boxShadow: esValida
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.amber.withValues(
+                                                    alpha: 0.6,
+                                                  ),
+                                                  blurRadius: 8,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ]
+                                            : isHighlightedZone
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.deepPurple
+                                                      .withValues(alpha: 0.6),
+                                                  blurRadius: 8,
+                                                  spreadRadius: 2,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Center(
+                                        child: esValida
+                                            ? Text(
+                                                '+$numeroColocar',
+                                                style: TextStyle(
+                                                  fontSize: max(12.0, cellFontSize - 2),
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              )
+                                            : Text(
+                                                valor == 0 ? '' : '$valor',
+                                                style: TextStyle(
+                                                  fontSize: cellFontSize,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.black87,
+                                                ),
                                               ),
-                                              blurRadius: 8,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : isHighlightedZone
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.deepPurple
-                                                  .withValues(alpha: 0.6),
-                                              blurRadius: 8,
-                                              spreadRadius: 2,
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: esValida
-                                        ? Text(
-                                            '+$numeroColocar',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w800,
-                                              color: Colors.amber.shade900,
-                                            ),
-                                          )
-                                        : Text(
-                                            valor == 0 ? '' : '$valor',
-                                            style: const TextStyle(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Padding(

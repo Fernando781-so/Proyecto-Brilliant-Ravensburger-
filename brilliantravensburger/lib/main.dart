@@ -16,6 +16,7 @@ class BrilliantApp extends StatelessWidget {
       listenable: themeService,
       builder: (context, _) {
         return MaterialApp(
+          title: 'Brilliant Ravensburger',
           debugShowCheckedModeBanner: false,
           themeMode: themeService.themeMode,
           theme: ThemeData(
