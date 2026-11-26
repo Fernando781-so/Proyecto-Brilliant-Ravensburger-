@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'app_background.dart';
@@ -245,6 +246,26 @@ class _InicioScreenState extends State<InicioScreen> {
         ),
       ),
     );
+  }
+
+  void _colocarNumerosAlAzar() {
+    if (_miConfiguracionCompletada || _enviandoConfiguracion) return;
+    unawaited(AudioService.instance.reproducirSelect());
+    final posiciones = bloc.posicionesIniciales;
+    final numeros = <int>[1, 2, 3, 4, 5, 6]..shuffle(Random());
+    setState(() {
+      _posicionExplosion = null;
+      for (final pos in posiciones) {
+        tablero.celdas[pos[0]][pos[1]] = 0;
+      }
+      for (var i = 0; i < posiciones.length && i < numeros.length; i++) {
+        bloc.colocarNumero(
+          posiciones[i][0],
+          posiciones[i][1],
+          numeros[i],
+        );
+      }
+    });
   }
 
   Region _obtenerRegionCasilla(int fila, int columna) {
@@ -624,6 +645,15 @@ class _InicioScreenState extends State<InicioScreen> {
                         tooltip: 'Ver reglas del tablero $_tableroSeleccionado',
                         onPressed: _mostrarReglasDelTablero,
                         icon: const Icon(Icons.menu_book_outlined),
+                      ),
+                      TextButton.icon(
+                        key: const ValueKey('randomize-initial-numbers-button'),
+                        onPressed:
+                            _miConfiguracionCompletada || _enviandoConfiguracion
+                            ? null
+                            : _colocarNumerosAlAzar,
+                        icon: const Icon(Icons.shuffle, size: 18),
+                        label: const Text('Al azar'),
                       ),
                       TextButton.icon(
                         onPressed: widget.multiplayer == null

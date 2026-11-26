@@ -695,6 +695,91 @@ void main() {
       ]);
       expect(empate['p1'], 0);
       expect(empate['p2'], 0);
+
+      // Compensación por ranked injusto:
+      // Brecha >= 200 pts abajo: pérdida reducida al 50% (-10 -> -5)
+      final brecha200 = calcularResultadosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'fav',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 30,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1200,
+          rankedGames: 0,
+        ),
+        MultiplayerPlayer(
+          id: 'dog',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 15,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 0,
+        ),
+      ]);
+      expect(brecha200['dog']!.delta, -5);
+      expect(brecha200['dog']!.compensacion, contains('-50%'));
+
+      // Brecha >= 300 pts / >= 2 rangos abajo: 0 pts perdidos
+      final brecha300 = calcularResultadosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'fav',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 30,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1300,
+          rankedGames: 0,
+        ),
+        MultiplayerPlayer(
+          id: 'dog',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 15,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 0,
+        ),
+      ]);
+      expect(brecha300['dog']!.delta, 0);
+      expect(brecha300['dog']!.compensacion, contains('0 pts perdidos'));
+
+      // Victoria contra rival >= 200 pts arriba: +20% extra (+30 -> +36)
+      final victoriaSuperior = calcularResultadosEloMultijugador(const [
+        MultiplayerPlayer(
+          id: 'dog',
+          username: 'Ana',
+          ready: true,
+          connected: true,
+          score: 30,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1000,
+          rankedGames: 0,
+        ),
+        MultiplayerPlayer(
+          id: 'fav',
+          username: 'Luis',
+          ready: true,
+          connected: true,
+          score: 15,
+          finished: true,
+          setupComplete: true,
+          rankedPoints: 1200,
+          rankedGames: 0,
+        ),
+      ]);
+      expect(victoriaSuperior['dog']!.delta, 36);
+      expect(victoriaSuperior['dog']!.compensacion, contains('+20%'));
     });
 
     testWidgets(
@@ -779,6 +864,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
+        expect(find.byKey(const ValueKey('ranked-compensation-banner')), findsOneWidget);
         expect(find.text('Principiante (900 pts)'), findsOneWidget);
         expect(find.text('Nuevo héroe (1000 pts)'), findsOneWidget);
         expect(find.text('Experto (1150 pts)'), findsOneWidget);

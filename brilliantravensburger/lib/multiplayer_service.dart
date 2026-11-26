@@ -44,30 +44,61 @@ int obtenerFactorKElo({required int elo, int partidasRanked = 0}) {
   return eloFactorKNormal;
 }
 
-Map<String, int> calcularCambiosEloMultijugador(
+class ResultadoEloJugador {
+  const ResultadoEloJugador({required this.delta, this.compensacion});
+
+  final int delta;
+  final String? compensacion;
+}
+
+bool hayCompensacionRankedEnSala(List<MultiplayerPlayer> jugadores) {
+  if (jugadores.length < 2) return false;
+  var minElo = max(eloMinimo, jugadores.first.rankedPoints);
+  var maxElo = minElo;
+  var minTier = obtenerIndiceNivelRanked(minElo);
+  var maxTier = minTier;
+
+  for (final jugador in jugadores.skip(1)) {
+    final elo = max(eloMinimo, jugador.rankedPoints);
+    final tier = obtenerIndiceNivelRanked(elo);
+    if (elo < minElo) minElo = elo;
+    if (elo > maxElo) maxElo = elo;
+    if (tier < minTier) minTier = tier;
+    if (tier > maxTier) maxTier = tier;
+  }
+
+  return (maxElo - minElo) >= 200 || (maxTier - minTier) >= 2;
+}
+
+Map<String, ResultadoEloJugador> calcularResultadosEloMultijugador(
   List<MultiplayerPlayer> jugadores, {
   String? winnerId,
 }) {
-  final cambios = <String, int>{};
+  final resultados = <String, ResultadoEloJugador>{};
   if (jugadores.length < 2) {
     for (final jugador in jugadores) {
-      cambios[jugador.id] = 0;
+      resultados[jugador.id] = const ResultadoEloJugador(delta: 0);
     }
-    return cambios;
+    return resultados;
   }
 
   final cantidadRivales = jugadores.length - 1;
   for (final jugador in jugadores) {
     final eloPropio = max(eloMinimo, jugador.rankedPoints);
+    final tierPropio = obtenerIndiceNivelRanked(eloPropio);
     final k = obtenerFactorKElo(
       elo: eloPropio,
       partidasRanked: jugador.rankedGames,
     );
     var sumaDiferencias = 0.0;
+    var maxBrechaPtsDerrota = 0;
+    var maxBrechaRangoDerrota = 0;
+    var vencioRival200Arriba = false;
 
     for (final rival in jugadores) {
       if (rival.id == jugador.id) continue;
       final eloRival = max(eloMinimo, rival.rankedPoints);
+      final tierRival = obtenerIndiceNivelRanked(eloRival);
       final esperado = 1.0 / (1.0 + pow(10, (eloRival - eloPropio) / 400.0));
 
       final double resultadoReal;
@@ -83,15 +114,57 @@ Map<String, int> calcularCambiosEloMultijugador(
         resultadoReal = 0.5;
       }
 
+      final brechaPts = eloRival - eloPropio;
+      final brechaRango = tierRival - tierPropio;
+      if (resultadoReal == 0.0) {
+        if (brechaPts > maxBrechaPtsDerrota) maxBrechaPtsDerrota = brechaPts;
+        if (brechaRango > maxBrechaRangoDerrota) {
+          maxBrechaRangoDerrota = brechaRango;
+        }
+      } else if (resultadoReal == 1.0 && brechaPts >= 200) {
+        vencioRival200Arriba = true;
+      }
+
       sumaDiferencias += resultadoReal - esperado;
     }
 
-    final deltaBruto = ((k / cantidadRivales) * sumaDiferencias).round();
+    var deltaBruto = ((k / cantidadRivales) * sumaDiferencias).round();
+    String? compensacion;
+
+    if (deltaBruto < 0) {
+      if (maxBrechaPtsDerrota >= 300 || maxBrechaRangoDerrota >= 2) {
+        deltaBruto = 0;
+        compensacion = 'Escudo por diferencia de nivel (0 pts perdidos)';
+      } else if (maxBrechaPtsDerrota >= 200) {
+        deltaBruto = -(deltaBruto.abs() * 0.5).round();
+        compensacion = 'Compensación por diferencia de nivel (-50% pérdida)';
+      }
+    } else if (deltaBruto > 0 && vencioRival200Arriba) {
+      deltaBruto = (deltaBruto * 1.2).round();
+      compensacion = 'Bono +20% por vencer a rival superior';
+    }
+
     final nuevoElo = max(eloMinimo, eloPropio + deltaBruto);
-    cambios[jugador.id] = nuevoElo - eloPropio;
+    resultados[jugador.id] = ResultadoEloJugador(
+      delta: nuevoElo - eloPropio,
+      compensacion: compensacion,
+    );
   }
 
-  return cambios;
+  return resultados;
+}
+
+Map<String, int> calcularCambiosEloMultijugador(
+  List<MultiplayerPlayer> jugadores, {
+  String? winnerId,
+}) {
+  final resultados = calcularResultadosEloMultijugador(
+    jugadores,
+    winnerId: winnerId,
+  );
+  return {
+    for (final entry in resultados.entries) entry.key: entry.value.delta,
+  };
 }
 
 int calcularCambioPuntosRanked({
@@ -158,6 +231,7 @@ class MultiplayerPlayer {
     this.rankedPoints = eloInicial,
     this.rankedGames = 0,
     this.rankedDelta,
+    this.rankedCompensation,
     this.board,
   });
 
@@ -171,6 +245,7 @@ class MultiplayerPlayer {
   final int rankedPoints;
   final int rankedGames;
   final int? rankedDelta;
+  final String? rankedCompensation;
   final List<int>? board;
 
   String get rankedLevel => obtenerNivelRanked(rankedPoints);
@@ -193,6 +268,7 @@ class MultiplayerPlayer {
           : eloInicial,
       rankedGames: max(0, (json['rankedGames'] as num?)?.toInt() ?? 0),
       rankedDelta: (json['rankedDelta'] as num?)?.toInt(),
+      rankedCompensation: json['rankedCompensation'] as String?,
       board: rawBoard?.map((value) => (value as num).toInt()).toList(),
     );
   }

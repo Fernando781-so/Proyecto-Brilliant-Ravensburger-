@@ -614,12 +614,14 @@ class _JuegoScreenState extends State<JuegoScreen>
               if (room.ranked)
                 Builder(
                   builder: (context) {
-                    final fallbackDeltas = calcularCambiosEloMultijugador(
+                    final fallbackResults = calcularResultadosEloMultijugador(
                       room.players,
                       winnerId: effectiveWinner?.id,
                     );
-                    final delta =
-                        player.rankedDelta ?? fallbackDeltas[player.id] ?? 0;
+                    final fallback = fallbackResults[player.id];
+                    final delta = player.rankedDelta ?? fallback?.delta ?? 0;
+                    final compensacion =
+                        player.rankedCompensation ?? fallback?.compensacion;
                     final totalElo = player.rankedDelta != null
                         ? player.rankedPoints
                         : aplicarCambioPuntosRanked(
@@ -629,17 +631,32 @@ class _JuegoScreenState extends State<JuegoScreen>
                     final deltaLabel = delta > 0 ? '+$delta' : '$delta';
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        'Clasificatoria: $deltaLabel pts → ${obtenerNivelRanked(totalElo)} ($totalElo pts)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: delta > 0
-                              ? Colors.green.shade800
-                              : delta < 0
-                              ? Colors.red.shade700
-                              : Colors.blueGrey.shade700,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Clasificatoria: $deltaLabel pts → ${obtenerNivelRanked(totalElo)} ($totalElo pts)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: delta > 0
+                                  ? Colors.green.shade800
+                                  : delta < 0
+                                  ? Colors.red.shade700
+                                  : Colors.blueGrey.shade700,
+                            ),
+                          ),
+                          if (compensacion != null)
+                            Text(
+                              '⚡ $compensacion',
+                              key: ValueKey('ranked-compensation-${player.id}'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.amber.shade800,
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   },

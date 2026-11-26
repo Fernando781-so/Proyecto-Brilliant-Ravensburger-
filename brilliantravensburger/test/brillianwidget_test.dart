@@ -1249,9 +1249,13 @@ void main() {
 
       expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
       expect(find.text('Ganador: Ana'), findsOneWidget);
-      // Ana (1000 ELO, K=40) vence a Luis (1200 ELO): +30 ELO -> 1030 ELO (Nuevo héroe)
+      // Ana (1000, K=40) vence a Luis (1200, brecha 200): +30 * 1.2 = +36 pts -> 1036 pts (Nuevo héroe)
       expect(
-        find.text('Clasificatoria: +30 pts → Nuevo héroe (1030 pts)'),
+        find.text('Clasificatoria: +36 pts → Nuevo héroe (1036 pts)'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('⚡ Bono +20% por vencer a rival superior'),
         findsOneWidget,
       );
       // Luis (1200, K=40) pierde contra Ana (1000): -30 pts -> 1170 pts (Experto)
@@ -1322,14 +1326,18 @@ void main() {
 
       expect(find.text('Modo Clasificatoria (Ranked)'), findsOneWidget);
       expect(find.text('Ganador: Luis'), findsOneWidget);
-      // Luis (favorito 1200 vs 1000, K=40): +10 ELO -> 1210 ELO (Experto)
+      // Luis (favorito 1200 vs 1000, K=40): +10 pts -> 1210 pts (Experto)
       expect(
         find.text('Clasificatoria: +10 pts → Experto (1210 pts)'),
         findsOneWidget,
       );
-      // Ana (1000 vs 1200, K=40): -10 pts -> 990 pts (Principiante)
+      // Ana (1000 vs 1200, brecha 200): pérdida reducida al 50% (-10 -> -5) -> 995 pts (Principiante)
       expect(
-        find.text('Clasificatoria: -10 pts → Principiante (990 pts)'),
+        find.text('Clasificatoria: -5 pts → Principiante (995 pts)'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('⚡ Compensación por diferencia de nivel (-50% pérdida)'),
         findsOneWidget,
       );
     },
@@ -2216,6 +2224,31 @@ void main() {
 
       expect(find.text('Abrir partida'), findsOneWidget);
       expect(audio.pistaMusicaActual, AudioAssets.musicaMenu);
+    },
+  );
+
+  testWidgets(
+    'permite colocar los 6 números iniciales al azar y habilitar el inicio',
+    (tester) async {
+      _configurarSuperficie(tester);
+      await tester.pumpWidget(
+        const MaterialApp(home: InicioScreen(tableroInicial: 1)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('COLOCA LOS 6 NÚMEROS'), findsOneWidget);
+      final randomBtn = find.byKey(
+        const ValueKey('randomize-initial-numbers-button'),
+      );
+      expect(randomBtn, findsOneWidget);
+
+      await tester.tap(randomBtn);
+      await tester.pumpAndSettle();
+
+      expect(find.text('¡LISTO! AVANZAR'), findsOneWidget);
+      for (var n = 1; n <= 6; n++) {
+        expect(find.text('$n'), findsOneWidget);
+      }
     },
   );
 }

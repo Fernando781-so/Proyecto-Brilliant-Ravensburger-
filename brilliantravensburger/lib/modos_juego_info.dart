@@ -106,7 +106,8 @@ Future<void> mostrarReglasModosJuego(BuildContext context) {
                       '• Experto (1150–1299 pts)\n'
                       '• Megamente (1300–1499 pts)\n'
                       '• EL Brilliant (1500+ pts)\n'
-                      'Al finalizar, tus puntos suben o bajan según tu posición y el nivel de tus rivales (piso mínimo: 100 pts).',
+                      'Al finalizar, tus puntos suben o bajan según tu posición y el nivel de tus rivales (piso mínimo: 100 pts).\n'
+                      'Compensación por desnivel: si caes ante un rival ≥200 pts arriba pierdes solo el 50% (0 pts si la brecha es ≥300 pts o ≥2 rangos), y si lo vences recibes +20% extra.',
                 ),
                 buildSection(
                   icon: Icons.timer,

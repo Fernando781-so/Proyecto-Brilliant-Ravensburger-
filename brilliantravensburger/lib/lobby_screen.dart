@@ -600,6 +600,43 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ],
           ),
         ),
+        if (room.ranked && hayCompensacionRankedEnSala(room.players)) ...[
+          const SizedBox(height: 6),
+          Builder(
+            builder: (context) {
+              final esOscuro = Theme.of(context).brightness == Brightness.dark;
+              return Container(
+                key: const ValueKey('ranked-compensation-banner'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: esOscuro
+                      ? const Color(0xFF4A3210)
+                      : Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: esOscuro
+                        ? Colors.amber.shade300
+                        : Colors.amber.shade700,
+                  ),
+                ),
+                child: Text(
+                  '⚖️ Compensación activa por diferencia de nivel: pérdida reducida (50% o 0 pts) y +20% extra al vencer a rivales superiores.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: esOscuro
+                        ? Colors.amber.shade100
+                        : Colors.amber.shade900,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
         const SizedBox(height: 6),
         Text(
           service.playerId == room.hostId
