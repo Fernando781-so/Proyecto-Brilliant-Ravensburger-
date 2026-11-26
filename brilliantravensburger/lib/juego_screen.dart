@@ -27,6 +27,22 @@ class JuegoScreen extends StatefulWidget {
 
 enum _GameSidePanel { instructions, players }
 
+class _FloatingZonePopup {
+  const _FloatingZonePopup({
+    required this.id,
+    required this.zoneIndex,
+    required this.points,
+    required this.relX,
+    required this.relY,
+  });
+
+  final int id;
+  final int zoneIndex;
+  final int points;
+  final double relX;
+  final double relY;
+}
+
 class _JuegoScreenState extends State<JuegoScreen>
     with TickerProviderStateMixin {
   int dado1 = 1;
@@ -44,6 +60,10 @@ class _JuegoScreenState extends State<JuegoScreen>
   _GameSidePanel? _openSidePanel;
   final Set<String> _avisosZonasCapturadas = {};
   final Set<int> _zonasCompletadasLocal = {};
+  final Set<int> _zonasBrillando = {};
+  final List<_FloatingZonePopup> _popupsZonas = [];
+  final List<Timer> _feedbackTimers = [];
+  int _nextPopupId = 0;
   Timer? _turnTimer;
   int _segundosRestantesTurno = duracionTurnoContraReloj.inSeconds;
 
@@ -52,6 +72,7 @@ class _JuegoScreenState extends State<JuegoScreen>
 
   final Random _random = Random();
   late final AnimationController _drawerController;
+  late final AnimationController _diceRollController;
   late final Animation<Offset> _leftDrawerPosition;
   late final Animation<Offset> _rightDrawerPosition;
 
@@ -62,6 +83,10 @@ class _JuegoScreenState extends State<JuegoScreen>
       vsync: this,
       duration: const Duration(milliseconds: 260),
     )..addStatusListener(_onDrawerAnimationStatus);
+    _diceRollController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
     final curve = CurvedAnimation(
       parent: _drawerController,
       curve: Curves.easeOutCubic,
@@ -107,7 +132,9 @@ class _JuegoScreenState extends State<JuegoScreen>
             if (mounted) _mostrarResultadoMultijugador();
           });
         } else {
-          unawaited(AudioService.instance.reproducirDado());
+          _animarGiroDados();
+          _animarGiroDados();
+    unawaited(AudioService.instance.reproducirDado());
           if (_contraRelojActivo) {
             _reiniciarTemporizadorTurno();
           }
@@ -239,15 +266,67 @@ class _JuegoScreenState extends State<JuegoScreen>
     return obtenerPosicionesValidas(widget.tablero, numeroAncla, numeroColocar);
   }
 
+  void _animarGiroDados() {
+    if (!mounted) return;
+    _diceRollController.forward(from: 0.0);
+  }
+
+  void _mostrarFeedbackZonaCompletada(int zoneIndex, int puntosGanados) {
+    if (!mounted ||
+        zoneIndex < 0 ||
+        zoneIndex >= widget.tablero.zonas.length ||
+        puntosGanados <= 0) {
+      return;
+    }
+    final posiciones = widget.tablero.zonas[zoneIndex].posiciones;
+    if (posiciones.isEmpty) return;
+
+    var sumRow = 0.0;
+    var sumCol = 0.0;
+    for (final pos in posiciones) {
+      sumRow += pos[0];
+      sumCol += pos[1];
+    }
+    final relX = ((sumCol / posiciones.length) + 0.5) / 7.0;
+    final relY = ((sumRow / posiciones.length) + 0.5) / 7.0;
+    final popup = _FloatingZonePopup(
+      id: ++_nextPopupId,
+      zoneIndex: zoneIndex,
+      points: puntosGanados,
+      relX: relX.clamp(0.14, 0.86),
+      relY: relY.clamp(0.14, 0.86),
+    );
+
+    setState(() {
+      _zonasBrillando.add(zoneIndex);
+      _popupsZonas.add(popup);
+    });
+
+    final glowTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() => _zonasBrillando.remove(zoneIndex));
+    });
+    final popupTimer = Timer(const Duration(milliseconds: 1150), () {
+      if (!mounted) return;
+      setState(() => _popupsZonas.removeWhere((item) => item.id == popup.id));
+    });
+    _feedbackTimers.addAll([glowTimer, popupTimer]);
+  }
+
   @override
   void dispose() {
     _detenerTemporizadorTurno();
+    for (final timer in _feedbackTimers) {
+      timer.cancel();
+    }
+    _feedbackTimers.clear();
     unawaited(AudioService.instance.reproducirMusicaMenu());
     final service = widget.multiplayer;
     if (service != null) {
       service.removeListener(_onMultiplayerUpdate);
       service.dispose();
     }
+    _diceRollController.dispose();
     _drawerController.dispose();
     super.dispose();
   }
@@ -517,6 +596,9 @@ class _JuegoScreenState extends State<JuegoScreen>
             (reclamo.value['points'] as num?)?.toInt() ??
             (reclamo.value['score'] as num?)?.toInt() ??
             0;
+        if (playerId == service.playerId) {
+          _mostrarFeedbackZonaCompletada(zoneIndex, points);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -540,7 +622,9 @@ class _JuegoScreenState extends State<JuegoScreen>
       if (_contraRelojActivo) {
         _reiniciarTemporizadorTurno();
       }
-      unawaited(AudioService.instance.reproducirDado());
+      _animarGiroDados();
+      _animarGiroDados();
+    unawaited(AudioService.instance.reproducirDado());
       if (!hayMovimientosPosibles(widget.tablero, dado1, dado2)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _mostrarAvisoSinMovimientos();
@@ -720,6 +804,7 @@ class _JuegoScreenState extends State<JuegoScreen>
       return;
     }
 
+    _animarGiroDados();
     unawaited(AudioService.instance.reproducirDado());
     if (_contraRelojActivo) {
       _reiniciarTemporizadorTurno();
@@ -830,14 +915,22 @@ class _JuegoScreenState extends State<JuegoScreen>
     }
 
     var capturoZonaLocal = false;
+    final zonasNuevasLocal = <int>[];
     for (var i = 0; i < widget.tablero.zonas.length; i++) {
       if (widget.tablero.zonas[i].esValida(widget.tablero) &&
           _zonasCompletadasLocal.add(i)) {
         capturoZonaLocal = true;
+        zonasNuevasLocal.add(i);
       }
     }
     if (capturoZonaLocal) {
       unawaited(AudioService.instance.reproducirZonaPropia());
+      for (final zIdx in zonasNuevasLocal) {
+        final ptsZona = widget.tablero.zonas[zIdx].bolsaPuntos.isNotEmpty
+            ? widget.tablero.zonas[zIdx].bolsaPuntos.first
+            : 0;
+        _mostrarFeedbackZonaCompletada(zIdx, ptsZona);
+      }
     }
 
     if (widget.tablero.estaCompleto) {
@@ -1591,114 +1684,231 @@ class _JuegoScreenState extends State<JuegoScreen>
                       return Center(
                         child: SizedBox.square(
                           dimension: boardSide,
-                          child: GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 7,
-                                  crossAxisSpacing: 4,
-                                  mainAxisSpacing: 4,
-                                ),
-                            itemCount: 49,
-                            itemBuilder: (context, index) {
-                              int fila = index ~/ 7;
-                              int columna = index % 7;
-                              int valor = widget.tablero.celdas[fila][columna];
-                              Region region = _obtenerRegionCasilla(fila, columna);
-                              final zoneIndex = widget.tablero.zonas.indexWhere(
-                                (zone) => zone.posiciones.any(
-                                  (position) =>
-                                      position[0] == fila && position[1] == columna,
-                                ),
-                              );
-                              final isHighlightedZone =
-                                  zoneIndex >= 0 && zoneIndex == _zonaResaltada;
-
-                              bool esValida = posicionesValidas.any(
-                                (p) => p[0] == fila && p[1] == columna,
-                              );
-
-                              return Tooltip(
-                                key: ValueKey('casilla-juego-$fila-$columna'),
-                                message: _mensajeCasilla(fila, columna, esValida),
-                                preferBelow: false,
-                                waitDuration: const Duration(milliseconds: 350),
-                                child: MouseRegion(
-                                  cursor: esValida
-                                      ? SystemMouseCursors.click
-                                      : SystemMouseCursors.basic,
-                                  child: GestureDetector(
-                                    onTap: () => _alTocarCasilla(fila, columna),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 250),
-                                      decoration: BoxDecoration(
-                                        color: esValida
-                                            ? Colors.amber.shade300
-                                            : isHighlightedZone
-                                            ? Color.lerp(
-                                                _colorParaRegion(region),
-                                                Colors.lightBlueAccent,
-                                                0.55,
-                                              )
-                                            : _colorParaRegion(region),
-                                        border: Border.all(
-                                          color: esValida
-                                              ? Colors.amber.shade900
-                                              : isHighlightedZone
-                                              ? Colors.deepPurple
-                                              : Colors.black26,
-                                          width: esValida
-                                              ? 3.5
-                                              : isHighlightedZone
-                                              ? 4
-                                              : 1.0,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              GridView.builder(
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 7,
+                                      crossAxisSpacing: 4,
+                                      mainAxisSpacing: 4,
+                                    ),
+                                itemCount: 49,
+                                itemBuilder: (context, index) {
+                                  int fila = index ~/ 7;
+                                  int columna = index % 7;
+                                  int valor =
+                                      widget.tablero.celdas[fila][columna];
+                                  Region region = _obtenerRegionCasilla(
+                                    fila,
+                                    columna,
+                                  );
+                                  final zoneIndex = widget.tablero.zonas
+                                      .indexWhere(
+                                        (zone) => zone.posiciones.any(
+                                          (position) =>
+                                              position[0] == fila &&
+                                              position[1] == columna,
                                         ),
-                                        borderRadius: BorderRadius.circular(6),
-                                        boxShadow: esValida
-                                            ? [
-                                                BoxShadow(
-                                                  color: Colors.amber.withValues(
-                                                    alpha: 0.6,
+                                      );
+                                  final isHighlightedZone =
+                                      zoneIndex >= 0 &&
+                                      zoneIndex == _zonaResaltada;
+                                  final isGlowingZone =
+                                      zoneIndex >= 0 &&
+                                      _zonasBrillando.contains(zoneIndex);
+
+                                  bool esValida = posicionesValidas.any(
+                                    (p) => p[0] == fila && p[1] == columna,
+                                  );
+
+                                  return Tooltip(
+                                    key: ValueKey('casilla-juego-$fila-$columna'),
+                                    message: _mensajeCasilla(
+                                      fila,
+                                      columna,
+                                      esValida,
+                                    ),
+                                    preferBelow: false,
+                                    waitDuration: const Duration(
+                                      milliseconds: 350,
+                                    ),
+                                    child: MouseRegion(
+                                      cursor: esValida
+                                          ? SystemMouseCursors.click
+                                          : SystemMouseCursors.basic,
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            _alTocarCasilla(fila, columna),
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 250,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: esValida
+                                                ? Colors.amber.shade300
+                                                : isGlowingZone
+                                                ? Color.lerp(
+                                                    _colorParaRegion(region),
+                                                    Colors.amberAccent,
+                                                    0.48,
+                                                  )
+                                                : isHighlightedZone
+                                                ? Color.lerp(
+                                                    _colorParaRegion(region),
+                                                    Colors.lightBlueAccent,
+                                                    0.55,
+                                                  )
+                                                : _colorParaRegion(region),
+                                            border: Border.all(
+                                              color: esValida
+                                                  ? Colors.amber.shade900
+                                                  : isGlowingZone
+                                                  ? Colors.amber.shade700
+                                                  : isHighlightedZone
+                                                  ? Colors.deepPurple
+                                                  : Colors.black26,
+                                              width: esValida
+                                                  ? 3.5
+                                                  : isGlowingZone
+                                                  ? 3.5
+                                                  : isHighlightedZone
+                                                  ? 4
+                                                  : 1.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                            boxShadow: esValida
+                                                ? [
+                                                    BoxShadow(
+                                                      color: Colors.amber
+                                                          .withValues(
+                                                            alpha: 0.6,
+                                                          ),
+                                                      blurRadius: 8,
+                                                      spreadRadius: 2,
+                                                    ),
+                                                  ]
+                                                : isGlowingZone
+                                                ? [
+                                                    BoxShadow(
+                                                      color: Colors.amberAccent
+                                                          .withValues(
+                                                            alpha: 0.75,
+                                                          ),
+                                                      blurRadius: 10,
+                                                      spreadRadius: 2,
+                                                    ),
+                                                  ]
+                                                : isHighlightedZone
+                                                ? [
+                                                    BoxShadow(
+                                                      color: Colors.deepPurple
+                                                          .withValues(
+                                                            alpha: 0.6,
+                                                          ),
+                                                      blurRadius: 8,
+                                                      spreadRadius: 2,
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Center(
+                                            child: esValida
+                                                ? Text(
+                                                    '+$numeroColocar',
+                                                    style: TextStyle(
+                                                      fontSize: max(
+                                                        12.0,
+                                                        cellFontSize - 2,
+                                                      ),
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      color:
+                                                          Colors.amber.shade900,
+                                                    ),
+                                                  )
+                                                : Text(
+                                                    valor == 0 ? '' : '$valor',
+                                                    style: TextStyle(
+                                                      fontSize: cellFontSize,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.black87,
+                                                    ),
                                                   ),
-                                                  blurRadius: 8,
-                                                  spreadRadius: 2,
-                                                ),
-                                              ]
-                                            : isHighlightedZone
-                                            ? [
-                                                BoxShadow(
-                                                  color: Colors.deepPurple
-                                                      .withValues(alpha: 0.6),
-                                                  blurRadius: 8,
-                                                  spreadRadius: 2,
-                                                ),
-                                              ]
-                                            : null,
+                                          ),
+                                        ),
                                       ),
-                                      child: Center(
-                                        child: esValida
-                                            ? Text(
-                                                '+$numeroColocar',
-                                                style: TextStyle(
-                                                  fontSize: max(12.0, cellFontSize - 2),
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.amber.shade900,
-                                                ),
-                                              )
-                                            : Text(
-                                                valor == 0 ? '' : '$valor',
-                                                style: TextStyle(
-                                                  fontSize: cellFontSize,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              for (final popup in _popupsZonas)
+                                Positioned(
+                                  left: (popup.relX * boardSide) - 36,
+                                  top: (popup.relY * boardSide) - 18,
+                                  child: IgnorePointer(
+                                    child: TweenAnimationBuilder<double>(
+                                      key: ValueKey(
+                                        'floating-zone-points-anim-${popup.id}',
+                                      ),
+                                      tween: Tween(begin: 0.0, end: 1.0),
+                                      duration: const Duration(
+                                        milliseconds: 1100,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      builder: (context, t, child) {
+                                        final opacity = t < 0.7
+                                            ? 1.0
+                                            : ((1.0 - t) / 0.3).clamp(0.0, 1.0);
+                                        return Opacity(
+                                          opacity: opacity,
+                                          child: Transform.translate(
+                                            offset: Offset(0, -28 * t),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        key: ValueKey(
+                                          'floating-zone-points-${popup.zoneIndex}',
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade700,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(
+                                                alpha: 0.3,
                                               ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Text(
+                                          '+${popup.points} pts',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 13,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              );
-                            },
+                            ],
                           ),
                         ),
                       );
@@ -1864,47 +2074,63 @@ class _JuegoScreenState extends State<JuegoScreen>
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 65,
-        height: 65,
-        decoration: BoxDecoration(
-          color: esAncla ? Colors.blue.shade700 : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: esAncla ? Colors.blue.shade900 : Colors.grey.shade400,
-            width: esAncla ? 3.5 : 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 4,
-              offset: const Offset(2, 2),
+      child: AnimatedBuilder(
+        animation: _diceRollController,
+        builder: (context, child) {
+          final t = Curves.easeOutBack.transform(
+            _diceRollController.value.clamp(0.0, 1.0),
+          );
+          final angle = _diceRollController.isAnimating ? t * 2 * pi : 0.0;
+          final scale = _diceRollController.isAnimating
+              ? 1.0 + 0.14 * sin(_diceRollController.value * pi)
+              : 1.0;
+          return Transform.rotate(
+            angle: angle,
+            child: Transform.scale(scale: scale, child: child),
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 65,
+          height: 65,
+          decoration: BoxDecoration(
+            color: esAncla ? Colors.blue.shade700 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: esAncla ? Colors.blue.shade900 : Colors.grey.shade400,
+              width: esAncla ? 3.5 : 1.5,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$valor',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: esAncla ? Colors.white : Colors.black87,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 4,
+                offset: const Offset(2, 2),
               ),
-            ),
-            if (esAncla)
-              const Text(
-                'ANCLA',
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$valor',
                 style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 0.8,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: esAncla ? Colors.white : Colors.black87,
                 ),
               ),
-          ],
+              if (esAncla)
+                const Text(
+                  'ANCLA',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

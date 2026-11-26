@@ -11,7 +11,37 @@ import 'audio_service.dart';
 import 'inicio_screen.dart';
 import 'lobby_screen.dart';
 import 'modos_juego_info.dart';
+import 'multiplayer_service.dart';
 import 'session_lifecycle_service.dart';
+
+class PlayerProfile {
+  const PlayerProfile({
+    required this.rankedPoints,
+    required this.rankedLevel,
+    required this.gamesPlayed,
+    required this.wins,
+    required this.currentStreak,
+  });
+
+  final int rankedPoints;
+  final String rankedLevel;
+  final int gamesPlayed;
+  final int wins;
+  final int currentStreak;
+
+  factory PlayerProfile.fromJson(Map<String, dynamic> json) {
+    final pts = (json['rankedPoints'] as num?)?.toInt() ?? eloInicial;
+    final safePts = pts < eloMinimo ? eloInicial : pts;
+    return PlayerProfile(
+      rankedPoints: safePts,
+      rankedLevel:
+          (json['rankedLevel'] as String?) ?? obtenerNivelRanked(safePts),
+      gamesPlayed: (json['gamesPlayed'] as num?)?.toInt() ?? 0,
+      wins: (json['wins'] as num?)?.toInt() ?? 0,
+      currentStreak: (json['currentStreak'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key, this.initialLogin = true});
@@ -34,6 +64,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isPasswordVisible = false;
   String? _token;
   String? _currentUser;
+  PlayerProfile? _profile;
   AppLifecycleListener? _lifecycleListener;
   bool _closingSessionOnExit = false;
 
@@ -102,6 +133,29 @@ class _AuthScreenState extends State<AuthScreen> {
       ),
     );
     unawaited(AudioService.instance.reproducirMusicaMenu());
+    unawaited(_cargarPerfilJugador(token));
+  }
+
+  Future<void> _cargarPerfilJugador(String token) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/profile'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 6));
+      if (!mounted || _token != token) return;
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          setState(() {
+            _profile = PlayerProfile.fromJson(decoded);
+          });
+        }
+      }
+    } catch (_) {
+      // Si el servidor no responde, mantener el perfil por defecto o previo.
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -352,6 +406,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _token = null;
           _currentUser = null;
+          _profile = null;
           _usernameController.clear();
           _passwordController.clear();
           _isPasswordVisible = false;
@@ -407,6 +462,7 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _token = null;
           _currentUser = null;
+          _profile = null;
           _usernameController.clear();
           _passwordController.clear();
           _isPasswordVisible = false;
@@ -437,6 +493,110 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  Widget _buildProfileCard(BuildContext context) {
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final profile =
+        _profile ??
+        const PlayerProfile(
+          rankedPoints: eloInicial,
+          rankedLevel: 'Nuevo héroe',
+          gamesPlayed: 0,
+          wins: 0,
+          currentStreak: 0,
+        );
+
+    Widget statTile(String label, String value, IconData icon, Color color) {
+      return Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: esOscuro ? Colors.white70 : Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Card(
+      key: const ValueKey('player-profile-card'),
+      elevation: 3,
+      color: esOscuro
+          ? Colors.grey.shade900.withValues(alpha: 0.88)
+          : Colors.white.withValues(alpha: 0.92),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: esOscuro ? Colors.amber.shade300 : Colors.amber.shade700,
+          width: 1.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.emoji_events,
+                  color: esOscuro
+                      ? Colors.amber.shade300
+                      : Colors.amber.shade800,
+                  size: 22,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    '${profile.rankedLevel} · ${profile.rankedPoints} pts',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 16),
+            Row(
+              children: [
+                statTile(
+                  'Partidas',
+                  '${profile.gamesPlayed}',
+                  Icons.sports_esports_outlined,
+                  Colors.blue,
+                ),
+                statTile(
+                  'Victorias',
+                  '${profile.wins}',
+                  Icons.military_tech_outlined,
+                  Colors.green,
+                ),
+                statTile(
+                  'Racha',
+                  '${profile.currentStreak}',
+                  Icons.local_fire_department,
+                  Colors.deepOrange,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // VISTA CUANDO EL USUARIO YA ESTÁ AUTENTICADO
@@ -448,17 +608,23 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
         body: AppBackground(
           child: Center(
-            child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Bienvenido, $_currentUser!',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 30),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Bienvenido, $_currentUser!',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildProfileCard(context),
+                    const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -474,6 +640,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     );
                     if (mounted) {
                       unawaited(AudioService.instance.reproducirMusicaMenu());
+                      if (_token != null) {
+                        unawaited(_cargarPerfilJugador(_token!));
+                      }
                     }
                   },
                   icon: const Icon(Icons.play_arrow),
@@ -499,6 +668,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     );
                     if (mounted) {
                       unawaited(AudioService.instance.reproducirMusicaMenu());
+                      if (_token != null) {
+                        unawaited(_cargarPerfilJugador(_token!));
+                      }
                     }
                   },
                   icon: const Icon(Icons.add_circle_outline),
@@ -522,6 +694,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     );
                     if (mounted) {
                       unawaited(AudioService.instance.reproducirMusicaMenu());
+                      if (_token != null) {
+                        unawaited(_cargarPerfilJugador(_token!));
+                      }
                     }
                   },
                   icon: const Icon(Icons.login),
@@ -592,6 +767,8 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ],
           ),
+              ),
+            ),
           ),
         ),
       );

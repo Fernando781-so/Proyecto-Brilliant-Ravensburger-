@@ -1,13 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'theme_service.dart';
+import 'user_preferences_service.dart';
 import 'welcome_screen.dart';
 
 void main() {
   runApp(const BrilliantApp());
 }
 
-class BrilliantApp extends StatelessWidget {
+class BrilliantApp extends StatefulWidget {
   const BrilliantApp({super.key});
+
+  @override
+  State<BrilliantApp> createState() => _BrilliantAppState();
+}
+
+class _BrilliantAppState extends State<BrilliantApp> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(UserPreferencesService.instance.cargarPreferencias());
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'theme_service.dart';
+import 'user_preferences_service.dart';
 
 /// Rutas centralizadas de los archivos de música y efectos de sonido.
 class AudioAssets {
@@ -99,7 +100,7 @@ class AudioService extends ChangeNotifier {
     _musicaReproduciendoEnReproductor = false;
   }
 
-  void alternarMusica([bool? activa]) {
+  void alternarMusica([bool? activa, bool guardar = true]) {
     final nuevoValor = activa ?? !_musicaActiva;
     if (_musicaActiva == nuevoValor) return;
     _musicaActiva = nuevoValor;
@@ -118,16 +119,22 @@ class AudioService extends ChangeNotifier {
         );
       }
     }
+    if (guardar) {
+      unawaited(UserPreferencesService.instance.guardarPreferencias());
+    }
   }
 
-  void alternarSonidos([bool? activos]) {
+  void alternarSonidos([bool? activos, bool guardar = true]) {
     final nuevoValor = activos ?? !_sonidosActivos;
     if (_sonidosActivos == nuevoValor) return;
     _sonidosActivos = nuevoValor;
     notifyListeners();
+    if (guardar) {
+      unawaited(UserPreferencesService.instance.guardarPreferencias());
+    }
   }
 
-  void ajustarVolumenMusica(double volumen) {
+  void ajustarVolumenMusica(double volumen, {bool guardar = true}) {
     _volumenMusica = volumen.clamp(0.0, 1.0);
     if (!_esEntornoDePruebas) {
       try {
@@ -135,11 +142,17 @@ class AudioService extends ChangeNotifier {
       } catch (_) {}
     }
     notifyListeners();
+    if (guardar) {
+      unawaited(UserPreferencesService.instance.guardarPreferencias());
+    }
   }
 
-  void ajustarVolumenSonidos(double volumen) {
+  void ajustarVolumenSonidos(double volumen, {bool guardar = true}) {
     _volumenSonidos = volumen.clamp(0.0, 1.0);
     notifyListeners();
+    if (guardar) {
+      unawaited(UserPreferencesService.instance.guardarPreferencias());
+    }
   }
 
   /// Verifica si el archivo de audio existe en `assets/audio/`.

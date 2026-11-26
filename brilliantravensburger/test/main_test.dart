@@ -5,6 +5,7 @@ import 'package:brilliantravensburger/audio_service.dart';
 import 'package:brilliantravensburger/lobby_screen.dart';
 import 'package:brilliantravensburger/main.dart' as app;
 import 'package:brilliantravensburger/theme_service.dart';
+import 'package:brilliantravensburger/user_preferences_service.dart';
 
 void main() {
   setUp(() {
@@ -110,6 +111,38 @@ void main() {
       tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
       ThemeMode.light,
     );
+  });
+
+  testWidgets('persiste y restaura preferencias de tema, música y sonidos', (
+    tester,
+  ) async {
+    final memoria = <String, String>{};
+    final prefs = UserPreferencesService.instance;
+    prefs.configurarAlmacenamientoParaPruebas(
+      reader: (key) async => memoria[key],
+      writer: (key, value) async => memoria[key] = value,
+    );
+    addTearDown(prefs.limpiarAlmacenamientoParaPruebas);
+
+    ThemeService.instance.establecerFondoOscuro(true);
+    AudioService.instance.ajustarVolumenMusica(0.4);
+    AudioService.instance.ajustarVolumenSonidos(0.6);
+    AudioService.instance.alternarMusica(false);
+    AudioService.instance.alternarSonidos(false);
+    await tester.pump();
+
+    // Simular reinicio de la aplicación
+    ThemeService.instance.reiniciarEstadoParaPruebas();
+    AudioService.instance.reiniciarEstadoParaPruebas();
+    expect(ThemeService.instance.esFondoOscuro, isFalse);
+    expect(AudioService.instance.musicaActiva, isTrue);
+
+    await prefs.cargarPreferencias();
+    expect(ThemeService.instance.esFondoOscuro, isTrue);
+    expect(AudioService.instance.musicaActiva, isFalse);
+    expect(AudioService.instance.sonidosActivos, isFalse);
+    expect(AudioService.instance.volumenMusica, closeTo(0.4, 0.001));
+    expect(AudioService.instance.volumenSonidos, closeTo(0.6, 0.001));
   });
 
   testWidgets('lobby creation mode only shows room configuration', (
