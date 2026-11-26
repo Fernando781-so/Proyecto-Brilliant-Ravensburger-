@@ -47,11 +47,18 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('welcome-login-button')));
     await tester.pumpAndSettle();
 
+    expect(find.text('MODO ACCESO'), findsOneWidget);
     await tester.tap(find.text('¿No tienes cuenta? Regístrate'));
     await tester.pumpAndSettle();
 
     expect(find.text('Crear Cuenta'), findsOneWidget);
+    expect(find.text('REGISTRO NUEVO'), findsOneWidget);
     expect(find.text('REGISTRARSE'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('auth-tab-login')));
+    await tester.pumpAndSettle();
+    expect(find.text('Iniciar Sesión'), findsOneWidget);
+    expect(find.text('MODO ACCESO'), findsOneWidget);
   });
 
   testWidgets('password visibility can be toggled', (tester) async {

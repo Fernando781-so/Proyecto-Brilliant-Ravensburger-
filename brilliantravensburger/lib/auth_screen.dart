@@ -775,6 +775,23 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     // VISTA DE LOGIN / REGISTRO
+    final esOscuro = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = _isLogin
+        ? (esOscuro ? Colors.lightBlue.shade300 : Colors.blue.shade700)
+        : (esOscuro ? Colors.tealAccent.shade200 : Colors.teal.shade700);
+    final buttonColor = _isLogin ? Colors.blue.shade700 : Colors.teal.shade600;
+    final cardBg = esOscuro
+        ? Colors.grey.shade900.withValues(alpha: 0.90)
+        : Colors.white.withValues(alpha: 0.94);
+    final pillBg = _isLogin
+        ? (esOscuro
+              ? Colors.blue.shade900.withValues(alpha: 0.55)
+              : Colors.blue.shade50)
+        : (esOscuro
+              ? Colors.teal.shade900.withValues(alpha: 0.55)
+              : Colors.teal.shade50);
+    final inactiveTabText = esOscuro ? Colors.white70 : Colors.black54;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isLogin ? 'Iniciar Sesión' : 'Crear Cuenta'),
@@ -782,90 +799,289 @@ class _AuthScreenState extends State<AuthScreen> {
         actions: const [AudioSettingsButton()],
       ),
       body: AppBackground(
-        child: SingleChildScrollView(
-        // <--- Agregado para evitar desbordamiento
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.casino, size: 80, color: Colors.blue.shade700),
-              const SizedBox(height: 30),
-              TextField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Usuario',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 240),
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: accentColor, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: !_isPasswordVisible,
-                decoration:
-                    const InputDecoration(
-                      labelText: 'Contraseña',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ).copyWith(
-                      suffixIcon: IconButton(
-                        tooltip: _isPasswordVisible
-                            ? 'Ocultar contraseña'
-                            : 'Mostrar contraseña',
-                        onPressed: () {
-                          unawaited(AudioService.instance.reproducirSelect());
-                          setState(
-                            () => _isPasswordVisible = !_isPasswordVisible,
-                          );
-                        },
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Selector visual claro entre Entrar y Registrarse
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: esOscuro
+                            ? Colors.black.withValues(alpha: 0.45)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              key: const ValueKey('auth-tab-login'),
+                              onTap: _isLogin
+                                  ? null
+                                  : () {
+                                      unawaited(
+                                        AudioService.instance
+                                            .reproducirSelect(),
+                                      );
+                                      setState(() => _isLogin = true);
+                                    },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _isLogin
+                                      ? Colors.blue.shade700
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.login_rounded,
+                                      size: 18,
+                                      color: _isLogin
+                                          ? Colors.white
+                                          : inactiveTabText,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Entrar',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _isLogin
+                                            ? Colors.white
+                                            : inactiveTabText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              key: const ValueKey('auth-tab-register'),
+                              onTap: !_isLogin
+                                  ? null
+                                  : () {
+                                      unawaited(
+                                        AudioService.instance
+                                            .reproducirSelect(),
+                                      );
+                                      setState(() => _isLogin = false);
+                                    },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: !_isLogin
+                                      ? Colors.teal.shade600
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.person_add_alt_1_rounded,
+                                      size: 18,
+                                      color: !_isLogin
+                                          ? Colors.white
+                                          : inactiveTabText,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Registrarse',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: !_isLogin
+                                            ? Colors.white
+                                            : inactiveTabText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-              ),
-              const SizedBox(height: 24),
-              _isLoading
-                  ? const CircularProgressIndicator()
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade700,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () {
-                          unawaited(AudioService.instance.reproducirSelect());
-                          _submit();
-                        },
-                        child: Text(
-                          _isLogin ? 'INGRESAR' : 'REGISTRARSE',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    const SizedBox(height: 18),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: Column(
+                        key: ValueKey<bool>(_isLogin),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: pillBg,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: accentColor.withValues(alpha: 0.45),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Icon(
+                              _isLogin
+                                  ? Icons.login_rounded
+                                  : Icons.person_add_alt_1_rounded,
+                              size: 40,
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: pillBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _isLogin ? 'MODO ACCESO' : 'REGISTRO NUEVO',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.1,
+                                color: accentColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _isLogin
+                                ? 'Ingresa con tu cuenta existente para continuar tu progreso.'
+                                : 'Crea un usuario nuevo para guardar tu rango, partidas y victorias.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: esOscuro ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _usernameController,
+                      decoration: InputDecoration(
+                        labelText: _isLogin
+                            ? 'Usuario'
+                            : 'Elige un nombre de usuario',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.person),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: !_isPasswordVisible,
+                      decoration: InputDecoration(
+                        labelText: _isLogin
+                            ? 'Contraseña'
+                            : 'Crea una contraseña',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.lock),
+                        suffixIcon: IconButton(
+                          tooltip: _isPasswordVisible
+                              ? 'Ocultar contraseña'
+                              : 'Mostrar contraseña',
+                          onPressed: () {
+                            unawaited(
+                              AudioService.instance.reproducirSelect(),
+                            );
+                            setState(
+                              () => _isPasswordVisible = !_isPasswordVisible,
+                            );
+                          },
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                           ),
                         ),
                       ),
                     ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  unawaited(AudioService.instance.reproducirSelect());
-                  setState(() => _isLogin = !_isLogin);
-                },
-                child: Text(
-                  _isLogin
-                      ? '¿No tienes cuenta? Regístrate'
-                      : '¿Ya tienes cuenta? Inicia sesión',
+                    const SizedBox(height: 22),
+                    _isLoading
+                        ? const CircularProgressIndicator()
+                        : SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: buttonColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                unawaited(
+                                  AudioService.instance.reproducirSelect(),
+                                );
+                                _submit();
+                              },
+                              icon: Icon(
+                                _isLogin
+                                    ? Icons.login_rounded
+                                    : Icons.person_add_alt_1_rounded,
+                              ),
+                              label: Text(
+                                _isLogin ? 'INGRESAR' : 'REGISTRARSE',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () {
+                        unawaited(AudioService.instance.reproducirSelect());
+                        setState(() => _isLogin = !_isLogin);
+                      },
+                      child: Text(
+                        _isLogin
+                            ? '¿No tienes cuenta? Regístrate'
+                            : '¿Ya tienes cuenta? Inicia sesión',
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
         ),
       ),
     );
