@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:brilliantravensburger/hall_of_fame_widget.dart';
 import 'package:brilliantravensburger/lobby_screen.dart';
 import 'package:brilliantravensburger/multiplayer_service.dart';
 import 'package:flutter/material.dart';
@@ -556,6 +557,8 @@ void main() {
           home: LobbyScreen(token: 'token', username: 'Anfitrión'),
         ),
       );
+      await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+      await tester.pumpAndSettle();
 
       for (var boardId = 1; boardId <= 4; boardId++) {
         expect(find.byKey(ValueKey('creation-board-$boardId')), findsOneWidget);
@@ -1303,6 +1306,62 @@ void main() {
         expect(find.text('Reglas y modos de juego'), findsOneWidget);
         expect(find.text('Reglas básicas'), findsOneWidget);
         expect(find.text('Modo Contra reloj'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'abre el Salón de la Fama desde Crear sala mostrando Top 10 y posición propia fuera del Top 10',
+      (tester) async {
+        tester.view.physicalSize = const Size(1000, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        HallOfFameService.testLoader = (token) async => HallOfFameData(
+          top10: [
+            for (var i = 1; i <= 10; i++)
+              HallOfFameEntry(
+                position: i,
+                id: 'top-$i',
+                username: 'TopJugador$i',
+                rankedPoints: 1700 - (i * 25),
+                rankedLevel: obtenerNivelRanked(1700 - (i * 25)),
+              ),
+          ],
+          currentUser: const HallOfFameEntry(
+            position: 15,
+            id: 'me-15',
+            username: 'MiUsuario',
+            rankedPoints: 1020,
+            rankedLevel: 'Nuevo héroe',
+          ),
+        );
+        addTearDown(() => HallOfFameService.testLoader = null);
+
+        final service = _FakeLobbyMultiplayerService();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: LobbyScreen(
+              token: 'token',
+              username: 'MiUsuario',
+              service: service,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final hallButton = find.byKey(const ValueKey('lobby-hall-of-fame-button'));
+        expect(hallButton, findsOneWidget);
+        await tester.tap(hallButton);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const ValueKey('hall-of-fame-dialog')), findsOneWidget);
+        expect(find.text('Salón de la Fama · Top 10'), findsOneWidget);
+        expect(find.text('TopJugador1'), findsOneWidget);
+        expect(find.byKey(const ValueKey('hall-of-fame-current-user')), findsOneWidget);
+        expect(find.text('MiUsuario (Tú)'), findsOneWidget);
+        expect(find.text('#15'), findsOneWidget);
+        expect(find.text('1020 pts'), findsOneWidget);
       },
     );
   });

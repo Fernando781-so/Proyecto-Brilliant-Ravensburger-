@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'app_background.dart';
 import 'audio_service.dart';
 import 'brilliantravensburger.dart';
+import 'hall_of_fame_widget.dart';
 import 'inicio_screen.dart';
 import 'modos_juego_info.dart';
 import 'multiplayer_service.dart';
@@ -362,6 +363,27 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     unawaited(AudioService.instance.reproducirSelect());
                     setState(() => _isRanked = value);
                   },
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              key: const ValueKey('lobby-hall-of-fame-button'),
+              style: TextButton.styleFrom(
+                backgroundColor: fondoTarjetaBase,
+                foregroundColor: esOscuro
+                    ? Colors.amber.shade200
+                    : Colors.amber.shade900,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+              ),
+              onPressed: () =>
+                  mostrarSalonDeLaFamaDialog(context, token: widget.token),
+              icon: const Icon(Icons.emoji_events_outlined, size: 18),
+              label: const Text('Ver Salón de la Fama'),
+            ),
           ),
           const SizedBox(height: 8),
           SwitchListTile(

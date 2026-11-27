@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'app_background.dart';
 import 'app_config.dart';
 import 'audio_service.dart';
+import 'hall_of_fame_widget.dart';
 import 'inicio_screen.dart';
 import 'lobby_screen.dart';
 import 'modos_juego_info.dart';
@@ -65,6 +66,10 @@ class _AuthScreenState extends State<AuthScreen> {
   String? _token;
   String? _currentUser;
   PlayerProfile? _profile;
+  bool _hallOfFameExpanded = false;
+  bool _loadingHallOfFame = false;
+  HallOfFameData? _hallOfFameData;
+  String? _hallOfFameError;
   AppLifecycleListener? _lifecycleListener;
   bool _closingSessionOnExit = false;
 
@@ -407,6 +412,9 @@ class _AuthScreenState extends State<AuthScreen> {
           _token = null;
           _currentUser = null;
           _profile = null;
+          _hallOfFameExpanded = false;
+          _hallOfFameData = null;
+          _hallOfFameError = null;
           _usernameController.clear();
           _passwordController.clear();
           _isPasswordVisible = false;
@@ -463,6 +471,9 @@ class _AuthScreenState extends State<AuthScreen> {
           _token = null;
           _currentUser = null;
           _profile = null;
+          _hallOfFameExpanded = false;
+          _hallOfFameData = null;
+          _hallOfFameError = null;
           _usernameController.clear();
           _passwordController.clear();
           _isPasswordVisible = false;
@@ -491,6 +502,40 @@ class _AuthScreenState extends State<AuthScreen> {
         backgroundColor: Colors.red,
       ),
     );
+  }
+
+  Future<void> _cargarSalonDeLaFama() async {
+    final token = _token;
+    if (token == null) return;
+    setState(() {
+      _loadingHallOfFame = true;
+      _hallOfFameError = null;
+    });
+    try {
+      final data = await HallOfFameService.fetch(token);
+      if (!mounted || _token != token) return;
+      setState(() {
+        _hallOfFameData = data;
+        _loadingHallOfFame = false;
+      });
+    } catch (_) {
+      if (!mounted || _token != token) return;
+      setState(() {
+        _hallOfFameError = 'No se pudo cargar el Salón de la Fama.';
+        _loadingHallOfFame = false;
+      });
+    }
+  }
+
+  void _alternarSalonDeLaFama() {
+    if (_hallOfFameExpanded) {
+      unawaited(AudioService.instance.reproducirBack());
+      setState(() => _hallOfFameExpanded = false);
+      return;
+    }
+    unawaited(AudioService.instance.reproducirSelect());
+    setState(() => _hallOfFameExpanded = true);
+    unawaited(_cargarSalonDeLaFama());
   }
 
   Widget _buildProfileCard(BuildContext context) {
@@ -591,6 +636,98 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ],
             ),
+            const Divider(height: 18),
+            InkWell(
+              key: const ValueKey('profile-ranked-hall-toggle'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: _alternarSalonDeLaFama,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.emoji_events_outlined,
+                      size: 20,
+                      color: esOscuro
+                          ? Colors.amber.shade300
+                          : Colors.amber.shade800,
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Ranked',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _hallOfFameExpanded ? 'Ocultar' : 'Salón de la Fama',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: esOscuro
+                            ? Colors.lightBlue.shade200
+                            : Colors.blue.shade800,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      _hallOfFameExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_hallOfFameExpanded) ...[
+              const SizedBox(height: 8),
+              if (_loadingHallOfFame)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: CircularProgressIndicator(),
+                )
+              else if (_hallOfFameError != null)
+                Column(
+                  children: [
+                    Text(
+                      _hallOfFameError!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton.icon(
+                          onPressed: _cargarSalonDeLaFama,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Reintentar'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          key: const ValueKey('profile-ranked-hall-minimize'),
+                          onPressed: _alternarSalonDeLaFama,
+                          icon: const Icon(Icons.keyboard_arrow_up, size: 16),
+                          label: const Text('Minimizar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              else if (_hallOfFameData != null)
+                HallOfFameTable(
+                  data: _hallOfFameData!,
+                  onRefresh: _cargarSalonDeLaFama,
+                  onMinimize: _alternarSalonDeLaFama,
+                  maxListHeight: 240,
+                ),
+            ],
           ],
         ),
       ),
