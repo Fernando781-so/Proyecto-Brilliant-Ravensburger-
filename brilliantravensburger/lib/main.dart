@@ -40,6 +40,42 @@ class _BrilliantAppState extends State<BrilliantApp> {
               brightness: Brightness.light,
             ),
             scaffoldBackgroundColor: Colors.white,
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.94),
+                foregroundColor: Colors.blue.shade900,
+                side: BorderSide(color: Colors.blue.shade700, width: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.90),
+                foregroundColor: Colors.blue.shade900,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.94),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
@@ -48,6 +84,42 @@ class _BrilliantAppState extends State<BrilliantApp> {
               brightness: Brightness.dark,
             ),
             scaffoldBackgroundColor: Colors.black,
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFF1F242D).withValues(alpha: 0.94),
+                foregroundColor: Colors.lightBlue.shade100,
+                side: BorderSide(color: Colors.lightBlue.shade300, width: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFF1F242D).withValues(alpha: 0.90),
+                foregroundColor: Colors.lightBlue.shade100,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFF1F242D).withValues(alpha: 0.94),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
           home: const WelcomeScreen(),
         );

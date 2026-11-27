@@ -265,30 +265,54 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ? Colors.lightBlue.shade100
         : Colors.blue.shade900;
 
+    final fondoTarjetaBase = esOscuro
+        ? const Color(0xFF1F242D).withValues(alpha: 0.93)
+        : Colors.white.withValues(alpha: 0.94);
+
     return ListView(
       children: [
-        const Icon(Icons.groups_outlined, size: 64, color: Colors.blue),
-        const SizedBox(height: 12),
-        Text(
-          'Hola, ${widget.username}',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.joinMode
-              ? 'Ingresa el código de la sala para unirte a la partida.'
-              : 'Configura tu sala. La partida comienza cuando esté completa y todos estén listos.',
-          textAlign: TextAlign.center,
+        Card(
+          margin: EdgeInsets.zero,
+          color: fondoTarjetaBase,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: bordeInactivo),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              children: [
+                const Icon(Icons.groups_outlined, size: 48, color: Colors.blue),
+                const SizedBox(height: 8),
+                Text(
+                  'Hola, ${widget.username}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.joinMode
+                      ? 'Ingresa el código de la sala para unirte a la partida.'
+                      : 'Configura tu sala. La partida comienza cuando esté completa y todos estén listos.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ),
         if (!widget.joinMode) ...[
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           DropdownButtonFormField<int>(
             key: ValueKey(_capacity),
             initialValue: _capacity,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Cantidad de jugadores',
-              border: OutlineInputBorder(),
+              filled: true,
+              fillColor: fondoTarjetaBase,
+              border: const OutlineInputBorder(),
             ),
             items: List.generate(
               5,
@@ -316,7 +340,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 width: _isRanked ? 2 : 1,
               ),
             ),
-            tileColor: _isRanked ? fondoRankedActivo : null,
+            tileColor: _isRanked ? fondoRankedActivo : fondoTarjetaBase,
             secondary: Icon(
               _isRanked ? Icons.emoji_events : Icons.sports_esports_outlined,
               color: _isRanked ? iconoRankedActivo : Colors.blueGrey,
@@ -351,7 +375,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 width: _timeTrial ? 2 : 1,
               ),
             ),
-            tileColor: _timeTrial ? fondoContraRelojActivo : null,
+            tileColor: _timeTrial ? fondoContraRelojActivo : fondoTarjetaBase,
             secondary: Icon(
               _timeTrial ? Icons.timer : Icons.timer_off_outlined,
               color: _timeTrial ? iconoContraRelojActivo : Colors.blueGrey,
@@ -379,15 +403,29 @@ class _LobbyScreenState extends State<LobbyScreen> {
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               key: const ValueKey('lobby-modes-info-button'),
+              style: TextButton.styleFrom(
+                backgroundColor: fondoTarjetaBase,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+              ),
               onPressed: () => mostrarReglasModosJuego(context),
               icon: const Icon(Icons.info_outline, size: 18),
               label: const Text('Ver reglas y modos de juego'),
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Selecciona el tablero',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: fondoTarjetaBase,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text(
+              'Selecciona el tablero',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ),
           const SizedBox(height: 8),
           SizedBox(

@@ -615,11 +615,24 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      'Bienvenido, $_currentUser!',
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey.shade900.withValues(alpha: 0.90)
+                            : Colors.white.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        'Bienvenido, $_currentUser!',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -715,7 +728,17 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 20),
               TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  backgroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xEB2B1818)
+                      : Colors.white.withValues(alpha: 0.94),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                ),
                 onPressed: () {
                   unawaited(AudioService.instance.reproducirSelect());
                   showDialog(
@@ -754,16 +777,19 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 10),
               TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor:
+                      Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.blueGrey.shade800,
+                ),
                 onPressed: _isLoading
                     ? null
                     : () {
                         unawaited(AudioService.instance.reproducirBack());
                         _logout();
                       },
-                child: const Text(
-                  'Cerrar sesión',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                child: const Text('Cerrar sesión'),
               ),
             ],
           ),

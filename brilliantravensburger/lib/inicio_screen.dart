@@ -633,47 +633,61 @@ class _InicioScreenState extends State<InicioScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Text(
-                        'Tablero $_tableroSeleccionado',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      IconButton(
-                        tooltip: 'Ver reglas del tablero $_tableroSeleccionado',
-                        onPressed: _mostrarReglasDelTablero,
-                        icon: const Icon(Icons.menu_book_outlined),
-                      ),
-                      TextButton.icon(
-                        key: const ValueKey('randomize-initial-numbers-button'),
-                        onPressed:
-                            _miConfiguracionCompletada || _enviandoConfiguracion
-                            ? null
-                            : _colocarNumerosAlAzar,
-                        icon: const Icon(Icons.shuffle, size: 18),
-                        label: const Text('Al azar'),
-                      ),
-                      TextButton.icon(
-                        onPressed: widget.multiplayer == null
-                            ? () {
-                                unawaited(
-                                  AudioService.instance.reproducirBack(),
-                                );
-                                setState(() {
-                                  _tableroSeleccionado = null;
-                                  for (final fila in tablero.celdas) {
-                                    fila.fillRange(0, fila.length, 0);
-                                  }
-                                  _posicionExplosion = null;
-                                });
-                              }
-                            : null,
-                        icon: const Icon(Icons.swap_horiz, size: 18),
-                        label: const Text('Cambiar tablero'),
-                      ),
-                    ],
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xEB1E242B)
+                          : Colors.white.withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 4,
+                      children: [
+                        Text(
+                          'Tablero $_tableroSeleccionado',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          tooltip: 'Ver reglas del tablero $_tableroSeleccionado',
+                          onPressed: _mostrarReglasDelTablero,
+                          icon: const Icon(Icons.menu_book_outlined),
+                        ),
+                        TextButton.icon(
+                          key: const ValueKey('randomize-initial-numbers-button'),
+                          onPressed:
+                              _miConfiguracionCompletada || _enviandoConfiguracion
+                              ? null
+                              : _colocarNumerosAlAzar,
+                          icon: const Icon(Icons.shuffle, size: 18),
+                          label: const Text('Al azar'),
+                        ),
+                        TextButton.icon(
+                          onPressed: widget.multiplayer == null
+                              ? () {
+                                  unawaited(
+                                    AudioService.instance.reproducirBack(),
+                                  );
+                                  setState(() {
+                                    _tableroSeleccionado = null;
+                                    for (final fila in tablero.celdas) {
+                                      fila.fillRange(0, fila.length, 0);
+                                    }
+                                    _posicionExplosion = null;
+                                  });
+                                }
+                              : null,
+                          icon: const Icon(Icons.swap_horiz, size: 18),
+                          label: const Text('Cambiar tablero'),
+                        ),
+                      ],
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),

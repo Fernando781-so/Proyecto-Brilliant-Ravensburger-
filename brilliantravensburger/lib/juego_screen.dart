@@ -1934,9 +1934,25 @@ class _JuegoScreenState extends State<JuegoScreen>
                             icon: const Icon(Icons.undo),
                             label: const Text('Deshacer'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red.shade700,
+                              backgroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? const Color(0xFF2B1C1E).withValues(
+                                      alpha: 0.95,
+                                    )
+                                  : Colors.white.withValues(alpha: 0.95),
+                              disabledBackgroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.grey.shade900.withValues(alpha: 0.80)
+                                  : Colors.white.withValues(alpha: 0.78),
+                              foregroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.red.shade300
+                                  : Colors.red.shade700,
                               side: BorderSide(
-                                color: Colors.red.shade300,
+                                color: Colors.red.shade400,
                                 width: 2,
                               ),
                               shape: RoundedRectangleBorder(
