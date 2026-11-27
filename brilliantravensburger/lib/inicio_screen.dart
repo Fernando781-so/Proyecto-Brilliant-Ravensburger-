@@ -654,10 +654,29 @@ class _InicioScreenState extends State<InicioScreen> {
                           'Tablero $_tableroSeleccionado',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        IconButton(
-                          tooltip: 'Ver reglas del tablero $_tableroSeleccionado',
-                          onPressed: _mostrarReglasDelTablero,
-                          icon: const Icon(Icons.menu_book_outlined),
+                        Tooltip(
+                          message:
+                              'Ver reglas del tablero $_tableroSeleccionado',
+                          child: FilledButton.icon(
+                            key: const ValueKey('inicio-rules-button'),
+                            onPressed: _mostrarReglasDelTablero,
+                            icon: const Icon(Icons.menu_book_rounded, size: 20),
+                            label: const Text(
+                              'Instrucciones',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
                         ),
                         TextButton.icon(
                           key: const ValueKey('randomize-initial-numbers-button'),

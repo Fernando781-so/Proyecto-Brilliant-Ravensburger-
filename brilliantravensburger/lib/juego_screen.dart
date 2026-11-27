@@ -1626,32 +1626,83 @@ class _JuegoScreenState extends State<JuegoScreen>
                               }
                             },
                           ),
-                          ElevatedButton.icon(
-                            onPressed:
-                                service?.canPlay == false ||
-                                    _casillaJugada != null
-                                ? null
-                                : () {
-                                    unawaited(
-                                      AudioService.instance.reproducirSelect(),
-                                    );
-                                    setState(() {
-                                      anclaSeleccionada = anclaSeleccionada == 1
-                                          ? 2
-                                          : 1;
-                                    });
-                                  },
-                            icon: const Icon(Icons.swap_horiz, size: 20),
-                            label: const Text('Cambiar Ancla'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.blue.shade900,
-                              elevation: 2,
+                          Flexible(
+                            child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
+                              child: ElevatedButton(
+                                key: const ValueKey('swap-anchor-button'),
+                                onPressed:
+                                    service?.canPlay == false ||
+                                        _casillaJugada != null
+                                    ? null
+                                    : () {
+                                        unawaited(
+                                          AudioService.instance
+                                              .reproducirSelect(),
+                                        );
+                                        setState(() {
+                                          anclaSeleccionada =
+                                              anclaSeleccionada == 1 ? 2 : 1;
+                                        });
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue.shade700,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      Colors.blueGrey.shade100,
+                                  disabledForegroundColor:
+                                      Colors.blueGrey.shade500,
+                                  elevation: 3,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: Colors.blue.shade900.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.anchor_rounded, size: 17),
+                                          SizedBox(width: 5),
+                                          Text(
+                                            'Cambiar Ancla',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(
+                                            Icons.swap_horiz_rounded,
+                                            size: 17,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '⚓ $numeroAncla  ⇄  $numeroColocar',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
